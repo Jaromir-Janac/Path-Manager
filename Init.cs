@@ -29,16 +29,16 @@ namespace IngameScript {
             public List<IMyShipController> ShipControllers { get { return _shipControllers; } }
             IMyRemoteControl _remoteControl;
             IMyCockpit _cockpit;
-            bool _isCockpit = false;
-            bool _isRemote = false;
-            string _blocksName = "PathManager";
+            bool isCockpit = false;
+            bool isRemote = false;
+            string blocksName = "PathManager";
             public string BlocksName { get; set; }
             public Init(Program program) {
                 _program = program;
             }
             public List<IMyTerminalBlock> GetMyTerminalBlocks() {
                 _allGroupedBlocks.Clear();
-                _program.GridTerminalSystem.SearchBlocksOfName(_blocksName, _allGroupedBlocks);
+                _program.GridTerminalSystem.SearchBlocksOfName(blocksName, _allGroupedBlocks);
                 return _allGroupedBlocks;
             }
             public IMyCockpit GetCockpit() {
@@ -47,14 +47,14 @@ namespace IngameScript {
                     _shipControllers.Add(cockpit);
                     if (cockpit.IsUnderControl) {
                         _cockpit = cockpit;
-                        _isCockpit = true;
+                        isCockpit = true;
                     }
                 }
-                if (!_isCockpit && _cockpits.Count > 0) {
+                if (!isCockpit && _cockpits.Count > 0) {
                     _cockpit = _cockpits[0];
-                    _isCockpit = true;
+                    isCockpit = true;
                 }
-                if (!_isCockpit) {
+                if (!isCockpit) {
                     _program.Echo("No cockpit detected.");
                 }
                 return _cockpit;
@@ -65,10 +65,10 @@ namespace IngameScript {
                     _shipControllers.Add(remote);
                     if (remote.IsUnderControl) {
                         _remoteControl = remote;
-                        _isRemote = true;
+                        isRemote = true;
                     }
                 }
-                if (!_isRemote && _remotes.Count > 0) {
+                if (!isRemote && _remotes.Count > 0) {
                     { _remoteControl = _remotes[0]; }
                 }
                 else {

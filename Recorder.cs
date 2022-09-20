@@ -24,23 +24,23 @@ namespace IngameScript {
             Program _program;
             Vector3D _vectorStart;
             Vector3D _vectorEnd;
-            double _distance;
-            double _distanceOnStraights = 250;
-            double _distanceInTurns = 30;
-            string _wayName;
+            double distance;
+            double distanceOnStraights = 250;
+            double distanceInTurns = 30;
+            string wayName;
             Vector3 _moveIndicator;
             Vector2 _rotationIndicator;
-            float _rollIndicator;
-            bool _isTurning = false;
+            float rollIndicator;
+            bool isTurning = false;
             public double DistanceOnStraights {
-                get { return _distanceOnStraights; }
-                set { _distanceOnStraights = value; }
+                get { return distanceOnStraights; }
+                set { distanceOnStraights = value; }
             }
             public double DistanceInTurns {
-                get { return _distanceInTurns; }
-                set { _distanceInTurns = value; }
+                get { return distanceInTurns; }
+                set { distanceInTurns = value; }
             }
-            public string WayName { get { return _wayName; } }
+            public string WayName { get { return wayName; } }
             List<Vector3D> vectorsRecorded = new List<Vector3D>();
             public List<Vector3D> VectorsRecorded { get { return vectorsRecorded; } }
 
@@ -50,34 +50,34 @@ namespace IngameScript {
             public void StartRecording(string wayName) {
                 vectorsRecorded.Clear();
                 _vectorStart = _program._remote.GetPosition();
-                _wayName = wayName;
+                this.wayName = wayName;
                 vectorsRecorded.Add(_vectorStart);
-                _program._waypointCount++;
+                _program.waypointCount++;
             }
             public void CheckDistance() {
                 _vectorEnd = _program._remote.GetPosition();
-                _distance = Vector3D.Distance(_vectorStart, _vectorEnd);
+                distance = Vector3D.Distance(_vectorStart, _vectorEnd);
                 _moveIndicator = _program._cockpit.MoveIndicator;
                 _rotationIndicator = _program._cockpit.RotationIndicator;
-                _rollIndicator = _program._cockpit.RollIndicator;
-                if (_moveIndicator.X != 0 || _moveIndicator.Y != 0 || _rotationIndicator.X != 0 || _rotationIndicator.Y != 0 || _rollIndicator != 0) {
-                    _isTurning = true;
+                rollIndicator = _program._cockpit.RollIndicator;
+                if (_moveIndicator.X != 0 || _moveIndicator.Y != 0 || _rotationIndicator.X != 0 || _rotationIndicator.Y != 0 || rollIndicator != 0) {
+                    isTurning = true;
                 }
-                if ((_distance > _distanceInTurns && _isTurning) || _distance > _distanceOnStraights) {
-                    _program._distance += _distance;
+                if ((distance > distanceInTurns && isTurning) || distance > distanceOnStraights) {
+                    _program.distance += distance;
                     vectorsRecorded.Add(_vectorEnd);
                     _vectorStart = _vectorEnd;
-                    _program._waypointCount++;
-                    _isTurning = false;
+                    _program.waypointCount++;
+                    isTurning = false;
                 }
 
             }
             public void SaveWay() {
                 _vectorEnd = _program._remote.GetPosition();
-                _distance = Vector3D.Distance(_vectorStart, _vectorEnd);
+                distance = Vector3D.Distance(_vectorStart, _vectorEnd);
                 vectorsRecorded.Add(_vectorEnd);
-                _program._waypointCount++;
-                _program._distance += _distance;
+                _program.waypointCount++;
+                _program.distance += distance;
             }
             public void DiscardWay() {
                 vectorsRecorded.Clear();
