@@ -1,0 +1,15 @@
+﻿Path Manager v0.9
+
+For LCD interface add "PathManager" to the name of block.
+If the block has more displays, check the custom data of that block to switch displays.
+
+Recompile if you want to add blocks, or change display surface.
+
+To control the script through LCD interface use these 3 arguments:
+"Up"
+"Apply"
+"Down"
+
+For more commands visit workshop page.
+
+Remote control required.
