@@ -25,11 +25,11 @@ namespace IngameScript {
         MySprite _spriteText;
         MySprite _spriteTexture;
         static Vector2 s_defaultVectorTexture = new Vector2(128, 20);
-        static Vector2 s_DefaultVectorText = new Vector2(12, 10);
-        static Vector2 s_DefaultVectorGap = new Vector2(0, 30);
+        static Vector2 s_defaultVectorText = new Vector2(12, 10);
+        static Vector2 s_defaultVectorGap = new Vector2(0, 30);
         Vector2 _vectorDiff;
         Vector2 _vectorTexture = s_defaultVectorTexture;
-        Vector2 _vectorText = s_DefaultVectorText;
+        Vector2 _vectorText = s_defaultVectorText;
         MyIni _ini = new MyIni();
         MyIni _customData = new MyIni();
         MyIni _customDataMe = new MyIni();
@@ -431,7 +431,7 @@ namespace IngameScript {
                             if (listSelectNum > 4) {
                                 j = listSelectNum - 4;
                             }
-                            _vectorDiff = s_DefaultVectorGap * j;
+                            _vectorDiff = s_defaultVectorGap * j;
                             DrawListMenu(ref frame, _viewport, _vectorTexture, _vectorText - _vectorDiff);
                         }
                         break;
@@ -440,7 +440,7 @@ namespace IngameScript {
                             if (menuSelectNum > 2) {
                                 j = menuSelectNum - 2;
                             }
-                            _vectorDiff = s_DefaultVectorGap * j;
+                            _vectorDiff = s_defaultVectorGap * j;
                             DrawPathMenu(ref frame, _viewport, _vectorTexture, _vectorText - _vectorDiff);
                         }
                         break;
@@ -806,10 +806,10 @@ namespace IngameScript {
             }
         }
         void CursorUp() {
-            _vectorTexture -= s_DefaultVectorGap;
+            _vectorTexture -= s_defaultVectorGap;
         }
         void CursorDown() {
-            _vectorTexture += s_DefaultVectorGap;
+            _vectorTexture += s_defaultVectorGap;
         }
         public void DrawMainMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
             var positionText = vectorText + viewport.Position;
@@ -821,19 +821,19 @@ namespace IngameScript {
             _spriteText.Data = "Start Recording";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "List of Paths";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Remote Control";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Settings";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Rename Paths";
             frame.Add(_spriteText);
@@ -848,11 +848,11 @@ namespace IngameScript {
             _spriteText.Data = $"Waypoints recorded: {waypointCount}";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Total distance: {distance:0.0}m";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap * 2;
+            positionText += s_defaultVectorGap * 2;
             _spriteText.Position = positionText;
             _spriteText.Data = "Pause Recording";
             frame.Add(_spriteText);
@@ -867,19 +867,19 @@ namespace IngameScript {
             _spriteText.Data = $"Waypoints: {waypointCount}";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Distance: {distance:0.0}m";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Continue";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Save";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Discard";
             frame.Add(_spriteText);
@@ -895,7 +895,7 @@ namespace IngameScript {
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
             foreach (MyIniKey iniKey in _iniKeysPaths) {
-                positionText += s_DefaultVectorGap;
+                positionText += s_defaultVectorGap;
                 _spriteText.Position = positionText;
                 _spriteText.Data = iniKey.Name;
                 frame.Add(_spriteText);
@@ -911,23 +911,23 @@ namespace IngameScript {
             _spriteText.Data = $"Name: {pathName}";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"WP: {waypointCount}, Distance: {distance:0.0}m";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Replace in Remote";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Add to Remote";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "DELETE";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Back";
             frame.Add(_spriteText);
@@ -942,15 +942,15 @@ namespace IngameScript {
             _spriteText.Data = $"Reverse waypoints";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Clear waypoints";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"New path from waypoints";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Back";
             frame.Add(_spriteText);
@@ -965,15 +965,15 @@ namespace IngameScript {
             _spriteText.Data = $"Delete path:";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"{pathName} ?";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Yes";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Cancel";
             frame.Add(_spriteText);
@@ -988,15 +988,15 @@ namespace IngameScript {
             _spriteText.Data = $"Do you really want to";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"discard recorded path?";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Yes";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Cancel";
             frame.Add(_spriteText);
@@ -1011,19 +1011,19 @@ namespace IngameScript {
             _spriteText.Data = $"Distance between WP";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Straights:{_recorder.DistanceOnStraights}, Turning:{_recorder.DistanceInTurns}";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Distance on straights +";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Distance while turning +";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "Back";
             frame.Add(_spriteText);
@@ -1035,17 +1035,17 @@ namespace IngameScript {
             _spriteText.Position = positionText;
             _spriteText.Data = "Nothing to rename";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             if (_iniKeysPaths.Count == 0) {
                 _spriteText.Data = "Record some paths, then";
                 frame.Add(_spriteText);
-                positionText += s_DefaultVectorGap;
+                positionText += s_defaultVectorGap;
                 _spriteText.Position = positionText;
             }
-            _spriteText.Data = "Check custom data";
+            _spriteText.Data = "check custom data";
             frame.Add(_spriteText);
-            positionText += s_DefaultVectorGap;
+            positionText += s_defaultVectorGap;
             _spriteText.Position = positionText;
             _spriteText.Data = "of programable block";
             frame.Add(_spriteText);
