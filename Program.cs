@@ -261,30 +261,78 @@ namespace IngameScript {
             GetTextSurfaces();
         }
         void CustomDataParse() {
+            GetListOfPaths();
             string customDataMe = Me.CustomData;
             int count = 0;
+            string nameCurrent;
+            bool isSame = false;
+            int i;
+            int j;
+            int k;
+            bool isRenamed = false;
+            int charCount;
+            string str;
+            string strNew;
             _customDataMe.Clear();
             _customDataMe.TryParse(customDataMe);
             _iniKeys.Clear();
             _customDataMe.GetKeys(IniSectionPath, _iniKeys);
+            for (i = 0; i < _iniKeysPaths.Count; i++) {
+                k = 1;
+                if (_iniKeys.Count >= i + 1 && _iniKeysPaths[i].Name == _iniKeys[i].Name) {
+                    str = _customDataMe.Get(IniSectionPath, _iniKeysPaths[i].Name).ToString();
+                }
+                else {
+                    str = "rename";
+                    _customDataMe.Set(IniSectionPath, _iniKeysPaths[i].Name, str);
+                }
+                if (str != "rename") {
+                    if (i < _iniKeysPaths.Count - 1) {
+                        for (j = i + 1; j < _iniKeysPaths.Count; j++) {
+                            if (_customDataMe.ContainsKey(IniSectionPath, _iniKeysPaths[j].Name)) {
+                                if (str == _customDataMe.Get(IniSectionPath, _iniKeysPaths[j].Name).ToString()) {
+                                    strNew = str + $"_{k}";
+                                    _customDataMe.Set(IniSectionPath, _iniKeysPaths[j].Name, strNew);
+                                    k++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             MyIniValue waypoints;
             string name;
-            GetListOfPaths();
             if (_iniKeys.Count != 0) {
                 foreach (MyIniKey iniKey in _iniKeysPaths) {
-                    name = _customDataMe.Get(IniSectionPath, _iniKeys[count].Name).ToString();
+                    name = _customDataMe.Get(IniSectionPath, iniKey.Name).ToString();
                     if (name != iniKey.Name && name != "rename" && name != null && name != "") {
+                        i = 0;
+                        charCount = name.Length;
+                        do {
+                            if (isSame) {
+                                name += $"_{i}";
+                                isSame = false;
+                            }
+                            foreach (MyIniKey key in _iniKeysPaths) {
+                                nameCurrent = key.Name;
+                                if (name == nameCurrent) {
+                                    isSame = true;
+                                    if (name.Length > charCount) {
+                                        name = name.Remove(charCount);
+                                    }
+                                }
+                            }
+                            i++;
+                        } while (isSame);
                         waypoints = _ini.Get(IniSectionPath, iniKey.Name);
                         _ini.Delete(IniSectionPath, iniKey.Name);
                         _ini.Set(IniSectionPath, name, waypoints.ToString());
-                    }
-                    else {
-                        menuSelect = LcdMenuSelect.RenameWarning;
+                        isRenamed = true;
                     }
                     count++;
                 }
             }
-            else {
+            if (!isRenamed) {
                 menuSelect = LcdMenuSelect.RenameWarning;
             }
         }
