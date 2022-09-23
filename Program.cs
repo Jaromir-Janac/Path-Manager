@@ -19,13 +19,15 @@ using VRage.Game.ObjectBuilders.Definitions;
 //#endif 
 namespace IngameScript {
     public sealed partial class Program : MyGridProgram {
+        bool isVehicle = true;
+        //bool isCommand = false;
         Init _init;
         Recorder _recorder;
         Sprites _sprites;
         MySprite _spriteText;
         MySprite _spriteTexture;
-        static Vector2 s_defaultVectorTexture = new Vector2(128, 20);
-        static Vector2 s_defaultVectorText = new Vector2(12, 10);
+        static Vector2 s_defaultVectorTexture = new Vector2(240, 14);
+        static Vector2 s_defaultVectorText = new Vector2(5, 3);
         static Vector2 s_defaultVectorGap = new Vector2(0, 30);
         Vector2 _vectorDiff;
         Vector2 _vectorTexture = s_defaultVectorTexture;
@@ -50,6 +52,7 @@ namespace IngameScript {
         List<IMyTextSurface> _textSurfaces = new List<IMyTextSurface>();
         RectangleF _viewport;
         List<RectangleF> _viewports = new List<RectangleF>();
+        float scale;
         StringBuilder _strBuild = new StringBuilder();
         string pathName = "";
         int pathNum;
@@ -160,9 +163,9 @@ namespace IngameScript {
                 if (_ini.Get(IniSectionConfig, IniKeyDistanceTurns).ToInt32() != 0) {
                     _recorder.DistanceInTurns = _ini.Get(IniSectionConfig, IniKeyDistanceTurns).ToInt32();
                 }
-                GetListOfPaths();
-                CustomDataWrite();
             }
+            GetListOfPaths();
+            CustomDataWrite();
         }
         public void Main(string argument, UpdateType updateType) {
             if ((updateType & (UpdateType.Trigger | UpdateType.Terminal)) != 0) {
@@ -176,11 +179,13 @@ namespace IngameScript {
             }
         }
         void Initialize() {
-            _remote = _init.GetRemoteControl();
-            _cockpit = _init.GetCockpit();
-            _allNamedBlocks = _init.GetMyTerminalBlocks();
-            GetTextSurfaces();
-            SetUpTextSurfaces();
+            if (isVehicle) {
+                _remote = _init.GetRemoteControl();
+                _cockpit = _init.GetCockpit();
+                _allNamedBlocks = _init.GetMyTerminalBlocks();
+                GetTextSurfaces();
+                SetUpTextSurfaces();
+            }
         }
         void RunCommand(string input) {
             string _input = input.ToLower();
@@ -236,9 +241,11 @@ namespace IngameScript {
             }
         }
         void Continuum10() {
-            Drawing();
-            if (isRecording) {
-                WayRecording();
+            if (isVehicle) {
+                Drawing();
+                if (isRecording) {
+                    WayRecording();
+                }
             }
         }
         void GetListOfPaths() {
@@ -249,6 +256,8 @@ namespace IngameScript {
             CustomDataParse();
             Save();
             Load();
+            GetListOfPaths();
+            CustomDataWrite();
         }
         void CustomDataWrite() {
             Me.CustomData = "";
@@ -423,94 +432,109 @@ namespace IngameScript {
             }
         }
         void GetTextSurfaces() {
-            _textSurfaces.Clear();
-            foreach (IMyTextSurfaceProvider textSurface in _allNamedBlocks) {
-                int count = textSurface.SurfaceCount;
-                if (textSurface is IMyTextPanel) {
-                    _textSurfaces.Add(textSurface.GetSurface(0));
-                }
-                else if (textSurface is IMyTerminalBlock) {
-                    IMyTerminalBlock cockpitLcd = textSurface as IMyTerminalBlock;
-                    customDataStr = cockpitLcd.CustomData;
-                    _customData.TryParse(customDataStr);
-                    if (!_customData.ContainsKey(IniSectionLCD, IniKeyLCD)) {
-                        _customData.Set(IniSectionLCD, IniKeyLCD, DefIntValue);
+            if (isVehicle) {
+                _textSurfaces.Clear();
+                foreach (IMyTextSurfaceProvider textSurface in _allNamedBlocks) {
+                    int count = textSurface.SurfaceCount;
+                    if (textSurface is IMyTextPanel) {
+                        IMyTextPanel textPanel = textSurface as IMyTextPanel;
+                        _textSurfaces.Add(textSurface.GetSurface(0));
                     }
-                    _customData.Get(IniSectionLCD, IniKeyLCD).TryGetInt32(out keyValueInt);
-                    if (keyValueInt >= count) {
-                        keyValueInt = count - 1;
-                        _customData.Set(IniSectionLCD, IniKeyLCD, keyValueInt);
+                    else if (textSurface is IMyTerminalBlock) {
+                        IMyTerminalBlock cockpitLcd = textSurface as IMyTerminalBlock;
+                        customDataStr = cockpitLcd.CustomData;
+                        _customData.TryParse(customDataStr);
+                        if (!_customData.ContainsKey(IniSectionLCD, IniKeyLCD)) {
+                            _customData.Set(IniSectionLCD, IniKeyLCD, DefIntValue);
+                        }
+                        _customData.Get(IniSectionLCD, IniKeyLCD).TryGetInt32(out keyValueInt);
+                        if (keyValueInt >= count) {
+                            keyValueInt = count - 1;
+                            _customData.Set(IniSectionLCD, IniKeyLCD, keyValueInt);
+                        }
+                        cockpitLcd.CustomData = _customData.ToString();
+                        _textSurfaces.Add(textSurface.GetSurface(keyValueInt));
                     }
-                    cockpitLcd.CustomData = _customData.ToString();
-                    _textSurfaces.Add(textSurface.GetSurface(keyValueInt));
                 }
             }
         }
         void SetUpTextSurfaces() {
-            _viewports.Clear();
-            foreach (IMyTextSurface textSurface in _textSurfaces) {
-                textSurface.ContentType = ContentType.SCRIPT;
-                textSurface.Script = "None";
-                textSurface.ScriptBackgroundColor = Color.Black;
-                rectangleF = new RectangleF((textSurface.TextureSize - textSurface.SurfaceSize) / 2f,
-                                    textSurface.SurfaceSize);
-                _viewports.Add(rectangleF);
+            if (isVehicle) {
+                _viewports.Clear();
+                foreach (IMyTextSurface textSurface in _textSurfaces) {
+                    textSurface.ContentType = ContentType.SCRIPT;
+                    textSurface.Script = "None";
+                    textSurface.ScriptBackgroundColor = Color.Black;
+                    rectangleF = new RectangleF((textSurface.TextureSize - textSurface.SurfaceSize) / 2f,
+                                        textSurface.SurfaceSize);
+                    _viewports.Add(rectangleF);
+                }
             }
         }
         void Drawing() {
             for (int i = 0; i < _textSurfaces.Count; i++) {
                 var frame = _textSurfaces[i].DrawFrame();
                 _viewport = _viewports[i];
+                if (_viewport.Size.Y < 50) {
+                    scale = 0.35f;
+                }
+                else if (_viewport.Size.Y >= 50 && _viewport.Size.Y <= 74) {
+                    scale = 0.55f;
+                }
+                else if (_viewport.Size.Y > 74 && _viewport.Size.Y <= 128) {
+                    scale = 0.65f;
+                }
+                else if (_viewport.Size.Y > 128 && _viewport.Size.Y <= 320) {
+                    scale = 1f;
+                }
+                else if (_viewport.Size.Y > 75) {
+                    scale = 2f;
+                }
                 switch (menuSelect) {
                     case LcdMenuSelect.Main: {
-                            DrawMainMenu(ref frame, _viewport, _vectorTexture, _vectorText);
+                            DrawMainMenu(ref frame, _viewport, scale); ;
                         }
                         break;
                     case LcdMenuSelect.Record: {
-                            DrawRecordMenu(ref frame, _viewport, _vectorTexture, _vectorText);
+                            DrawRecordMenu(ref frame, _viewport, scale);
                         }
                         break;
                     case LcdMenuSelect.Stop: {
-                            DrawStopMenu(ref frame, _viewport, _vectorTexture, _vectorText);
+                            DrawStopMenu(ref frame, _viewport, scale);
                         }
                         break;
                     case LcdMenuSelect.List: {
                             j = 0;
-                            if (listSelectNum > 4) {
-                                j = listSelectNum - 4;
+                            if (listSelectNum > 5) {
+                                j = listSelectNum - 5;
                             }
                             _vectorDiff = s_defaultVectorGap * j;
-                            DrawListMenu(ref frame, _viewport, _vectorTexture, _vectorText - _vectorDiff);
+                            DrawListMenu(ref frame, _viewport, scale, (_vectorText - _vectorDiff));
                         }
                         break;
                     case LcdMenuSelect.Path: {
-                            j = 0;
-                            if (menuSelectNum > 2) {
-                                j = menuSelectNum - 2;
-                            }
-                            _vectorDiff = s_defaultVectorGap * j;
-                            DrawPathMenu(ref frame, _viewport, _vectorTexture, _vectorText - _vectorDiff);
+                            DrawPathMenu(ref frame, _viewport, scale);
                         }
                         break;
                     case LcdMenuSelect.Remote: {
-                            DrawRemoteMenu(ref frame, _viewport, _vectorTexture, _vectorText);
+                            DrawRemoteMenu(ref frame, _viewport, scale);
                         }
                         break;
                     case LcdMenuSelect.Settings: {
-                            DrawSettingsMenu(ref frame, _viewport, _vectorTexture, _vectorText);
+                            DrawSettingsMenu(ref frame, _viewport, scale);
                         }
                         break;
                     case LcdMenuSelect.Delete: {
-                            DrawDeleteMenu(ref frame, _viewport, _vectorTexture, _vectorText);
+                            DrawDeleteMenu(ref frame, _viewport, scale);
                         }
                         break;
                     case LcdMenuSelect.Discard: {
-                            DrawDiscardMenu(ref frame, _viewport, _vectorTexture, _vectorText);
+                            DrawDiscardMenu(ref frame, _viewport, scale);
                         }
                         break;
                     case LcdMenuSelect.RenameWarning: {
                             isTick100Counting = true;
-                            DrawRenameWarning(ref frame, _viewport, _vectorText);
+                            DrawRenameWarning(ref frame, _viewport, scale);
                             if (tick100counter > 5) {
                                 menuSelect = LcdMenuSelect.Main;
                                 isTick100Counting = false;
@@ -615,13 +639,13 @@ namespace IngameScript {
                     break;
                 case LcdMenuSelect.List: {
                         if (listSelectNum > 0 && moveSelect == LcdMove.Up) {
-                            if (listSelectNum <= 4) {
+                            if (listSelectNum <= 5) {
                                 CursorUp();
                             }
                             listSelectNum--;
                         }
                         else if (listSelectNum < _iniKeysPaths.Count() && moveSelect == LcdMove.Down) {
-                            if (listSelectNum < 4) {
+                            if (listSelectNum < 5) {
                                 CursorDown();
                             }
                             listSelectNum++;
@@ -662,16 +686,12 @@ namespace IngameScript {
                 case LcdMenuSelect.Path: {
                         menuSelectNum = (int)pathSelect;
                         if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
-                            if (menuSelectNum <= 2) {
-                                CursorUp();
-                            }
+                            CursorUp();
                             menuSelectNum--;
                             pathSelect = (LcdPathSelect)menuSelectNum;
                         }
                         else if (menuSelectNum < 3 && moveSelect == LcdMove.Down) {
-                            if (menuSelectNum < 2) {
-                                CursorDown();
-                            }
+                            CursorDown();
                             menuSelectNum++;
                             pathSelect = (LcdPathSelect)menuSelectNum;
                         }
@@ -859,241 +879,260 @@ namespace IngameScript {
         void CursorDown() {
             _vectorTexture += s_defaultVectorGap;
         }
-        public void DrawMainMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawMainMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = "Start Recording";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "List of Paths";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Remote Control";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Settings";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Rename Paths";
             frame.Add(_spriteText);
         }
-        public void DrawRecordMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawRecordMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
-            _spriteText.Data = $"Waypoints recorded: {waypointCount}";
+            _spriteText.RotationOrScale *= scale;
+            _spriteText.Data = $"Waypoints: {waypointCount}";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
-            _spriteText.Data = $"Total distance: {distance:0.0}m";
+            _spriteText.Data = $"Distance: {distance:0.0}m";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * 2;
+            positionText += (s_defaultVectorGap * 2) * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Pause Recording";
             frame.Add(_spriteText);
         }
-        public void DrawStopMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawStopMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = $"Waypoints: {waypointCount}";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Distance: {distance:0.0}m";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Continue";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Save";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Discard";
             frame.Add(_spriteText);
         }
-        public void DrawListMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawListMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale, Vector2 vectorText) {
+            var positionText = (vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = $"Back";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
             foreach (MyIniKey iniKey in _iniKeysPaths) {
-                positionText += s_defaultVectorGap;
+                positionText += s_defaultVectorGap * scale;
                 _spriteText.Position = positionText;
                 _spriteText.Data = iniKey.Name;
                 frame.Add(_spriteText);
             }
         }
-        public void DrawPathMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawPathMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = $"Name: {pathName}";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
-            _spriteText.Data = $"WP: {waypointCount}, Distance: {distance:0.0}m";
+            _spriteText.Data = $"WP:{waypointCount},Distance:{distance:0.0}m";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Replace in Remote";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Add to Remote";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "DELETE";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Back";
             frame.Add(_spriteText);
         }
-        public void DrawRemoteMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawRemoteMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = $"Reverse waypoints";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Clear waypoints";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
-            _spriteText.Data = $"New path from waypoints";
+            _spriteText.Data = $"New path from WP";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Back";
             frame.Add(_spriteText);
         }
-        public void DrawDeleteMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawDeleteMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = $"Delete path:";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = $"{pathName} ?";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Yes";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Cancel";
             frame.Add(_spriteText);
         }
-        public void DrawDiscardMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawDiscardMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = $"Do you really want to";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = $"discard recorded path?";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Yes";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = $"Cancel";
             frame.Add(_spriteText);
         }
-        public void DrawSettingsMenu(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorTexture, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
-            var positionTexture = vectorTexture + viewport.Position;
+        public void DrawSettingsMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
+            var positionTexture = _vectorTexture + viewport.Position;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture;
+            _spriteTexture.Position = positionTexture * scale;
+            _spriteTexture.Size *= scale;
             _spriteText.Position = positionText;
+            _spriteText.RotationOrScale *= scale;
             _spriteText.Data = $"Distance between WP";
             frame.Add(_spriteText);
             frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
-            _spriteText.Data = $"Straights:{_recorder.DistanceOnStraights}, Turning:{_recorder.DistanceInTurns}";
+            _spriteText.Data = $"Straights:{_recorder.DistanceOnStraights}m,Turns:{_recorder.DistanceInTurns}m";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Distance on straights +";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Distance while turning +";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "Back";
             frame.Add(_spriteText);
         }
-        public void DrawRenameWarning(ref MySpriteDrawFrame frame, RectangleF viewport, Vector2 vectorText) {
-            var positionText = vectorText + viewport.Position;
+        public void DrawRenameWarning(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
+            var positionText = (_vectorText + viewport.Position) * scale;
             _spriteText = _sprites.SpriteText;
             _spriteTexture = _sprites.SpriteTexture;
             _spriteText.Position = positionText;
             _spriteText.Data = "Nothing to rename";
+            _spriteText.RotationOrScale *= scale;
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             if (_iniKeysPaths.Count == 0) {
-                _spriteText.Data = "Record some paths, then";
+                _spriteText.Data = "Record some paths,";
                 frame.Add(_spriteText);
-                positionText += s_defaultVectorGap;
+                positionText += s_defaultVectorGap * scale;
                 _spriteText.Position = positionText;
             }
             _spriteText.Data = "check custom data";
             frame.Add(_spriteText);
-            positionText += s_defaultVectorGap;
+            positionText += s_defaultVectorGap * scale;
             _spriteText.Position = positionText;
             _spriteText.Data = "of programable block";
             frame.Add(_spriteText);

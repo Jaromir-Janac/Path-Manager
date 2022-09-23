@@ -37,7 +37,7 @@ namespace IngameScript {
             MySprite _spriteTexture = new MySprite() {
                 Type = SpriteType.TEXTURE,
                 Data = "AH_TextBox",
-                Size = new Vector2(256, 30),
+                Size = new Vector2(600, 30),
                 Color = Color.White.Alpha(0.26f),
                 Alignment = TextAlignment.CENTER
             };

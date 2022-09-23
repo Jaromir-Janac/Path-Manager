@@ -1,4 +1,4 @@
-﻿Path Manager v0.9
+﻿Path Manager v0.95
 
 For LCD interface add "PathManager" to the name of block.
 If the block has more displays, check the custom data of that block to switch displays.
