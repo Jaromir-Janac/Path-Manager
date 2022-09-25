@@ -19,13 +19,12 @@ using VRage.Game.ObjectBuilders.Definitions;
 //#endif 
 namespace IngameScript {
     public sealed partial class Program : MyGridProgram {
-        bool isVehicle = true;
-        //bool isCommand = false;
+        bool _isVehicle = true;
+        bool _isCC = false;
         Init _init;
         Recorder _recorder;
         Sprites _sprites;
-        MySprite _spriteText;
-        MySprite _spriteTexture;
+        Drawer _drawer;
         static Vector2 s_defaultVectorTexture = new Vector2(240, 14);
         static Vector2 s_defaultVectorText = new Vector2(5, 3);
         static Vector2 s_defaultVectorGap = new Vector2(0, 30);
@@ -35,6 +34,7 @@ namespace IngameScript {
         MyIni _ini = new MyIni();
         MyIni _customData = new MyIni();
         MyIni _customDataMe = new MyIni();
+        MyIni _iniMessage = new MyIni();
         List<MyIniKey> _iniKeysPaths = new List<MyIniKey>();
         List<MyIniKey> _iniKeys = new List<MyIniKey>();
         const string IniSectionLCD = "PathManager";
@@ -44,44 +44,48 @@ namespace IngameScript {
         const string IniKeyWayNum = "WayNum";
         const string IniKeyDistanceStraight = "DistanceOnStraights";
         const string IniKeyDistanceTurns = "DistanceInTurns";
+        const string IniKeyIsVehicle = "Vehicle";
+        const string IniKeyIsCC = "Command Center";
+        const string True = "true";
+        const string False = "false";
         const int DefIntValue = 0;
-        RectangleF rectangleF;
+        RectangleF _rectangleF;
         IMyRemoteControl _remote;
         IMyCockpit _cockpit;
         List<IMyTerminalBlock> _allNamedBlocks = new List<IMyTerminalBlock>();
         List<IMyTextSurface> _textSurfaces = new List<IMyTextSurface>();
         RectangleF _viewport;
         List<RectangleF> _viewports = new List<RectangleF>();
-        float scale;
+        float _scale;
         StringBuilder _strBuild = new StringBuilder();
-        string pathName = "";
-        int pathNum;
-        int j = 0;
-        bool isRecording = false;
-        int tick100counter = 0;
-        bool isTick100Counting = false;
-        int menuSelectNum = 1;
-        int listSelectNum = 1;
-        int waypointCount = 0;
-        int waypointNum = 1;
-        double distance = 0;
-        string[] xyz;
-        double x;
-        double y;
-        double z;
-        string[] waypointList;
-        string customDataStr;
-        int keyValueInt;
-        List<MyWaypointInfo> remoteWaypoints = new List<MyWaypointInfo>();
-        LcdMenuSelect menuSelect = LcdMenuSelect.Main;
-        LcdMainSelect mainSelect = LcdMainSelect.Record;
-        LcdStopSelect stopSelect = LcdStopSelect.Continue;
-        LcdPathSelect pathSelect = LcdPathSelect.ReplaceInRemote;
-        LcdRemoteSelect remoteSelect = LcdRemoteSelect.Reverse;
-        LcdDeleteSelect deleteSelect = LcdDeleteSelect.Cancel;
-        LcdDiscardSelect discardSelect = LcdDiscardSelect.Cancel;
-        LcdSettingSelect settingSelect = LcdSettingSelect.ChangeStraights;
-        LcdMove moveSelect = LcdMove.None;
+        string _pathName = "";
+        int _pathNum;
+        int _j = 0;
+        bool _isRecording = false;
+        int _tick100counter = 0;
+        bool _isTick100Counting = false;
+        int _menuSelectNum = 1;
+        int _listSelectNum = 1;
+        int _waypointCount = 0;
+        int _waypointNum = 1;
+        double _distance = 0;
+        string[] _xyz;
+        double _x;
+        double _y;
+        double _z;
+        string[] _waypointList;
+        string _customDataStr;
+        int _keyValueInt;
+        List<MyWaypointInfo> _remoteWaypoints = new List<MyWaypointInfo>();
+        LcdMenuSelect _menuSelect = LcdMenuSelect.Main;
+        LcdMainSelect _mainSelect = LcdMainSelect.Record;
+        LcdStopSelect _stopSelect = LcdStopSelect.Continue;
+        LcdPathSelect _pathSelect = LcdPathSelect.ReplaceInRemote;
+        LcdRemoteSelect _remoteSelect = LcdRemoteSelect.Reverse;
+        LcdDeleteSelect _deleteSelect = LcdDeleteSelect.Cancel;
+        LcdDiscardSelect _discardSelect = LcdDiscardSelect.Cancel;
+        LcdSettingSelect _settingSelect = LcdSettingSelect.ChangeStraights;
+        LcdMove _moveSelect = LcdMove.None;
         enum LcdMenuSelect {
             Main,
             Record,
@@ -137,31 +141,77 @@ namespace IngameScript {
             Down,
             Apply
         }
+        IMyBroadcastListener _myBroadcastListener;
+        string _broadCastTag = "Path Manager";
+        const string SendMePathList = "SendMePathList";
+        MyIGCMessage _myIGCMessage;
+        bool _isRecieving = false;
         public Program() {
             Runtime.UpdateFrequency = UpdateFrequency.Update10 | UpdateFrequency.Update100;
             _init = new Init(this);
             _recorder = new Recorder(this);
             _sprites = new Sprites(this);
+            _drawer = new Drawer(this);
             Load();
             Initialize();
+            _myBroadcastListener = IGC.RegisterBroadcastListener(_broadCastTag);
+            _myBroadcastListener.SetMessageCallback(_broadCastTag);
         }
         public void Save() {
-            _ini.Set(IniSectionConfig, IniKeyWayNum, pathNum);
+            _ini.Set(IniSectionConfig, IniKeyWayNum, _pathNum);
             _ini.Set(IniSectionConfig, IniKeyDistanceStraight, _recorder.DistanceOnStraights);
             _ini.Set(IniSectionConfig, IniKeyDistanceTurns, _recorder.DistanceInTurns);
+            string customDataMe = Me.CustomData;
+            _customDataMe.TryParse(customDataMe);
+            string vehicle = _customDataMe.Get(IniSectionConfig, IniKeyIsVehicle).ToString();
+            string cc = _customDataMe.Get(IniSectionConfig, IniKeyIsCC).ToString();
+            if (vehicle != "") {
+                if (vehicle.ToLower() == True) {
+                    _ini.Set(IniSectionConfig, IniKeyIsVehicle, True);
+                }
+                else if (vehicle.ToLower() == False) {
+                    _ini.Set(IniSectionConfig, IniKeyIsVehicle, False);
+                }
+            }
+            if (cc != "") {
+                if (cc.ToLower() == True) {
+                    _ini.Set(IniSectionConfig, IniKeyIsCC, True);
+                }
+                else if (cc.ToLower() == False) {
+                    _ini.Set(IniSectionConfig, IniKeyIsCC, False);
+                }
+            }
             Storage = _ini.ToString();
         }
         public void Load() {
             _ini.Clear();
             if (_ini.TryParse(Storage)) {
                 if (_ini.Get(IniSectionConfig, IniKeyWayNum).ToInt32() != 0) {
-                    pathNum = _ini.Get(IniSectionConfig, IniKeyWayNum).ToInt32();
+                    _pathNum = _ini.Get(IniSectionConfig, IniKeyWayNum).ToInt32();
                 }
                 if (_ini.Get(IniSectionConfig, IniKeyDistanceStraight).ToInt32() != 0) {
                     _recorder.DistanceOnStraights = _ini.Get(IniSectionConfig, IniKeyDistanceStraight).ToInt32();
                 }
                 if (_ini.Get(IniSectionConfig, IniKeyDistanceTurns).ToInt32() != 0) {
                     _recorder.DistanceInTurns = _ini.Get(IniSectionConfig, IniKeyDistanceTurns).ToInt32();
+                }
+                if (_ini.Get(IniSectionConfig, IniKeyIsVehicle).ToString() != "") {
+                    string value = _ini.Get(IniSectionConfig, IniKeyIsVehicle).ToString();
+                    if (value == True) {
+                        _isVehicle = true;
+                    }
+                    else if (value == False) {
+                        _isVehicle = false;
+                    }
+                }
+                if (_ini.Get(IniSectionConfig, IniKeyIsCC).ToString() != "") {
+                    string value = _ini.Get(IniSectionConfig, IniKeyIsCC).ToString();
+                    if (value == True) {
+                        _isCC = true;
+                    }
+                    else if (value == False) {
+                        _isCC = false;
+                    }
                 }
             }
             GetListOfPaths();
@@ -177,9 +227,14 @@ namespace IngameScript {
             if ((updateType & UpdateType.Update10) != 0) {
                 Continuum10();
             }
+            if ((updateType & UpdateType.IGC) != 0) {
+                if (_isCC || _isRecieving) {
+                    RecieveMessage();
+                }
+            }
         }
         void Initialize() {
-            if (isVehicle) {
+            if (_isVehicle) {
                 _remote = _init.GetRemoteControl();
                 _cockpit = _init.GetCockpit();
                 _allNamedBlocks = _init.GetMyTerminalBlocks();
@@ -191,17 +246,17 @@ namespace IngameScript {
             string _input = input.ToLower();
             switch (_input) {
                 case "up": {
-                        moveSelect = LcdMove.Up;
+                        _moveSelect = LcdMove.Up;
                         Move();
                     }
                     break;
                 case "down": {
-                        moveSelect = LcdMove.Down;
+                        _moveSelect = LcdMove.Down;
                         Move();
                     }
                     break;
                 case "apply": {
-                        moveSelect = LcdMove.Apply;
+                        _moveSelect = LcdMove.Apply;
                         Move();
                     }
                     break;
@@ -233,20 +288,98 @@ namespace IngameScript {
                         Initialize();
                     }
                     break;
+                case "send paths": {
+                        SendPathList();
+                    }
+                    break;
+                case "retrieve paths": {
+                        RetrievePathList();
+                    }
+                    break;
+                case "recieve paths": {
+                        _isRecieving = true;
+                    }
+                    break;
+                case "rename paths": {
+                        RenamePaths();
+                    }
+                    break;
             }
         }
         void Continuum100() {
-            if (isTick100Counting) {
-                tick100counter++;
+            if (_isTick100Counting) {
+                _tick100counter++;
             }
         }
         void Continuum10() {
-            if (isVehicle) {
+            if (_isVehicle) {
                 Drawing();
-                if (isRecording) {
+                if (_isRecording) {
                     WayRecording();
                 }
             }
+        }
+        void RecieveMessage() {
+            while (_myBroadcastListener.HasPendingMessage) {
+                _myIGCMessage = _myBroadcastListener.AcceptMessage();
+                if (_myIGCMessage.Tag == _broadCastTag) {
+                    if (_myIGCMessage.Data is string && _myIGCMessage.Data.ToString() != "") {
+                        if (_myIGCMessage.Data.ToString() == SendMePathList) {
+                            SendPathList();
+                        }
+                        else {
+                            _iniMessage.TryParse(_myIGCMessage.Data.ToString());
+                            IniParse(_iniMessage);
+                            _isRecieving = false;
+                        }
+                    }
+                }
+            }
+
+        }
+        void SendPathList() {
+            GetListOfPaths();
+            _iniMessage.Clear();
+            foreach (MyIniKey iniKey in _iniKeysPaths) {
+                _iniMessage.Set(IniSectionPath, iniKey.Name, _ini.Get(IniSectionPath, iniKey.Name).ToString());
+            }
+            _iniMessage.Set(IniSectionConfig, IniKeyWayNum, _waypointNum);
+            IGC.SendBroadcastMessage(_broadCastTag, _iniMessage.ToString());
+        }
+        void RetrievePathList() {
+            IGC.SendBroadcastMessage(_broadCastTag, SendMePathList);
+            _isRecieving = true;
+        }
+        void IniParse(MyIni iniMSG) {
+            GetListOfPaths();
+            _iniKeys.Clear();
+            iniMSG.GetKeys(IniSectionPath, _iniKeys);
+            bool isSame;
+            string key;
+            string waypoints;
+            string waypointsMSG;
+            foreach (MyIniKey iniKeyMSG in _iniKeys) {
+                waypointsMSG = iniMSG.Get(IniSectionPath, iniKeyMSG.Name).ToString();
+                isSame = false;
+                foreach (MyIniKey iniKey in _iniKeysPaths) {
+                    waypoints = _ini.Get(IniSectionPath, iniKey.Name).ToString();
+                    if (iniKey.Name == iniKeyMSG.Name) {
+                        if (waypointsMSG != waypoints) {
+                            key = iniKey.Name + $"_old";
+                            _ini.Set(IniSectionPath, key, waypoints);
+                        }
+                        else if (waypointsMSG == waypoints) {
+                            isSame = true;
+                        }
+                    }
+                }
+                if (!isSame) {
+                    _ini.Set(IniSectionPath, iniKeyMSG.Name, waypointsMSG);
+                    _pathNum++;
+                }
+            }
+            Save();
+            Load();
         }
         void GetListOfPaths() {
             _iniKeysPaths.Clear();
@@ -262,10 +395,12 @@ namespace IngameScript {
         void CustomDataWrite() {
             Me.CustomData = "";
             _customDataMe.Clear();
-            _customDataMe.AddSection(IniSectionPath);
             foreach (MyIniKey iniKey in _iniKeysPaths) {
                 _customDataMe.Set(IniSectionPath, iniKey.Name, "rename");
             }
+            _customDataMe.Set(IniSectionConfig, IniKeyIsVehicle, _isVehicle);
+            _customDataMe.Set(IniSectionConfig, IniKeyIsCC, _isCC);
+            _customDataMe.SetEndComment("Recompile me after changing values in [Config]");
             Me.CustomData = _customDataMe.ToString();
             GetTextSurfaces();
         }
@@ -273,7 +408,6 @@ namespace IngameScript {
             GetListOfPaths();
             string customDataMe = Me.CustomData;
             int count = 0;
-            string nameCurrent;
             bool isSame = false;
             int i;
             int j;
@@ -295,7 +429,7 @@ namespace IngameScript {
                     str = "rename";
                     _customDataMe.Set(IniSectionPath, _iniKeysPaths[i].Name, str);
                 }
-                if (str != "rename") {
+                if (str.ToLower() != "rename" && str != "DELETE") {
                     if (i < _iniKeysPaths.Count - 1) {
                         for (j = i + 1; j < _iniKeysPaths.Count; j++) {
                             if (_customDataMe.ContainsKey(IniSectionPath, _iniKeysPaths[j].Name)) {
@@ -323,8 +457,7 @@ namespace IngameScript {
                                 isSame = false;
                             }
                             foreach (MyIniKey key in _iniKeysPaths) {
-                                nameCurrent = key.Name;
-                                if (name == nameCurrent) {
+                                if (name == key.Name) {
                                     isSame = true;
                                     if (name.Length > charCount) {
                                         name = name.Remove(charCount);
@@ -335,14 +468,16 @@ namespace IngameScript {
                         } while (isSame);
                         waypoints = _ini.Get(IniSectionPath, iniKey.Name);
                         _ini.Delete(IniSectionPath, iniKey.Name);
-                        _ini.Set(IniSectionPath, name, waypoints.ToString());
+                        if (name != "DELETE") {
+                            _ini.Set(IniSectionPath, name, waypoints.ToString());
+                        }
                         isRenamed = true;
                     }
                     count++;
                 }
             }
             if (!isRenamed) {
-                menuSelect = LcdMenuSelect.RenameWarning;
+                _menuSelect = LcdMenuSelect.RenameWarning;
             }
         }
         void WayRecording() {
@@ -350,16 +485,16 @@ namespace IngameScript {
         }
         void RecordStart() {
             _cockpit = _init.GetCockpit();
-            waypointCount = 0;
-            _recorder.StartRecording(pathNum.ToString());
-            isRecording = true;
+            _waypointCount = 0;
+            _recorder.StartRecording(_pathNum.ToString());
+            _isRecording = true;
         }
         void RecordContinue() {
             _cockpit = _init.GetCockpit();
-            isRecording = true;
+            _isRecording = true;
         }
         void RecordPause() {
-            isRecording = false;
+            _isRecording = false;
         }
         void RecordEnd() {
             _recorder.SaveWay();
@@ -367,55 +502,54 @@ namespace IngameScript {
             foreach (Vector3D vector in _recorder.VectorsRecorded) {
                 _strBuild.AppendLine($"{vector.ToString("0.0000")};");
             }
-            _ini.Set(IniSectionPath, pathNum.ToString(), _strBuild.ToString());
-            pathNum++;
-            isRecording = false;
+            _ini.Set(IniSectionPath, _pathNum.ToString(), _strBuild.ToString());
+            _pathNum++;
+            _isRecording = false;
             Save();
             Load();
         }
         void PathAddToRemote() {
-            foreach (string waypoint in waypointList) {
+            foreach (string waypoint in _waypointList) {
                 var vector = GetVector3D(waypoint);
                 if (waypoint != "") {
-                    _remote.AddWaypoint(vector, waypointNum.ToString());
-                    waypointNum++;
+                    _remote.AddWaypoint(vector, _waypointNum.ToString());
+                    _waypointNum++;
                 }
             }
         }
         void CreatePathFromRemote() {
-            remoteWaypoints.Clear();
-            _remote.GetWaypointInfo(remoteWaypoints);
-            if (remoteWaypoints.Count != 0) {
+            _remoteWaypoints.Clear();
+            _remote.GetWaypointInfo(_remoteWaypoints);
+            if (_remoteWaypoints.Count != 0) {
                 _strBuild.Clear();
-                foreach (MyWaypointInfo waypointInfo in remoteWaypoints) {
+                foreach (MyWaypointInfo waypointInfo in _remoteWaypoints) {
                     Vector3D vector = waypointInfo.Coords;
                     _strBuild.AppendLine($"{vector.ToString("0.0000")};");
                 }
-                _ini.Set(IniSectionPath, pathNum.ToString(), _strBuild.ToString());
-                pathNum++;
+                _ini.Set(IniSectionPath, _pathNum.ToString(), _strBuild.ToString());
+                _pathNum++;
                 Save();
                 Load();
             }
-
         }
         Vector3D GetVector3D(string str) {
             var vector = new Vector3D();
             if (str != "") {
-                xyz = str.Split(':');
-                x = Convert.ToDouble(xyz[1].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                y = Convert.ToDouble(xyz[2].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                z = Convert.ToDouble(xyz[3].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                vector = new Vector3D(x, y, z);
+                _xyz = str.Split(':');
+                _x = Convert.ToDouble(_xyz[1].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
+                _y = Convert.ToDouble(_xyz[2].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
+                _z = Convert.ToDouble(_xyz[3].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
+                vector = new Vector3D(_x, _y, _z);
             }
             return vector;
         }
         void PathReplaceInRemote() {
             _remote.ClearWaypoints();
-            waypointNum = 1;
+            _waypointNum = 1;
             PathAddToRemote();
         }
         void PathDelete() {
-            _ini.Delete(IniSectionPath, pathName);
+            _ini.Delete(IniSectionPath, _pathName);
             Save();
             Load();
         }
@@ -423,16 +557,16 @@ namespace IngameScript {
             _recorder.DiscardWay();
         }
         void ReverseWaypoints() {
-            remoteWaypoints.Clear();
-            _remote.GetWaypointInfo(remoteWaypoints);
-            remoteWaypoints.Reverse();
+            _remoteWaypoints.Clear();
+            _remote.GetWaypointInfo(_remoteWaypoints);
+            _remoteWaypoints.Reverse();
             _remote.ClearWaypoints();
-            foreach (MyWaypointInfo waypointInfo in remoteWaypoints) {
+            foreach (MyWaypointInfo waypointInfo in _remoteWaypoints) {
                 _remote.AddWaypoint(waypointInfo);
             }
         }
         void GetTextSurfaces() {
-            if (isVehicle) {
+            if (_isVehicle) {
                 _textSurfaces.Clear();
                 foreach (IMyTextSurfaceProvider textSurface in _allNamedBlocks) {
                     int count = textSurface.SurfaceCount;
@@ -442,32 +576,32 @@ namespace IngameScript {
                     }
                     else if (textSurface is IMyTerminalBlock) {
                         IMyTerminalBlock cockpitLcd = textSurface as IMyTerminalBlock;
-                        customDataStr = cockpitLcd.CustomData;
-                        _customData.TryParse(customDataStr);
+                        _customDataStr = cockpitLcd.CustomData;
+                        _customData.TryParse(_customDataStr);
                         if (!_customData.ContainsKey(IniSectionLCD, IniKeyLCD)) {
                             _customData.Set(IniSectionLCD, IniKeyLCD, DefIntValue);
                         }
-                        _customData.Get(IniSectionLCD, IniKeyLCD).TryGetInt32(out keyValueInt);
-                        if (keyValueInt >= count) {
-                            keyValueInt = count - 1;
-                            _customData.Set(IniSectionLCD, IniKeyLCD, keyValueInt);
+                        _customData.Get(IniSectionLCD, IniKeyLCD).TryGetInt32(out _keyValueInt);
+                        if (_keyValueInt >= count) {
+                            _keyValueInt = count - 1;
+                            _customData.Set(IniSectionLCD, IniKeyLCD, _keyValueInt);
                         }
                         cockpitLcd.CustomData = _customData.ToString();
-                        _textSurfaces.Add(textSurface.GetSurface(keyValueInt));
+                        _textSurfaces.Add(textSurface.GetSurface(_keyValueInt));
                     }
                 }
             }
         }
         void SetUpTextSurfaces() {
-            if (isVehicle) {
+            if (_isVehicle) {
                 _viewports.Clear();
                 foreach (IMyTextSurface textSurface in _textSurfaces) {
                     textSurface.ContentType = ContentType.SCRIPT;
                     textSurface.Script = "None";
                     textSurface.ScriptBackgroundColor = Color.Black;
-                    rectangleF = new RectangleF((textSurface.TextureSize - textSurface.SurfaceSize) / 2f,
+                    _rectangleF = new RectangleF((textSurface.TextureSize - textSurface.SurfaceSize) / 2f,
                                         textSurface.SurfaceSize);
-                    _viewports.Add(rectangleF);
+                    _viewports.Add(_rectangleF);
                 }
             }
         }
@@ -476,68 +610,68 @@ namespace IngameScript {
                 var frame = _textSurfaces[i].DrawFrame();
                 _viewport = _viewports[i];
                 if (_viewport.Size.Y < 50) {
-                    scale = 0.35f;
+                    _scale = 0.35f;
                 }
                 else if (_viewport.Size.Y >= 50 && _viewport.Size.Y <= 74) {
-                    scale = 0.55f;
+                    _scale = 0.55f;
                 }
                 else if (_viewport.Size.Y > 74 && _viewport.Size.Y <= 128) {
-                    scale = 0.65f;
+                    _scale = 0.65f;
                 }
                 else if (_viewport.Size.Y > 128 && _viewport.Size.Y <= 320) {
-                    scale = 1f;
+                    _scale = 1f;
                 }
                 else if (_viewport.Size.Y > 75) {
-                    scale = 2f;
+                    _scale = 2f;
                 }
-                switch (menuSelect) {
+                switch (_menuSelect) {
                     case LcdMenuSelect.Main: {
-                            DrawMainMenu(ref frame, _viewport, scale); ;
+                            _drawer.DrawMainMenu(ref frame, _viewport, _scale); ;
                         }
                         break;
                     case LcdMenuSelect.Record: {
-                            DrawRecordMenu(ref frame, _viewport, scale);
+                            _drawer.DrawRecordMenu(ref frame, _viewport, _scale);
                         }
                         break;
                     case LcdMenuSelect.Stop: {
-                            DrawStopMenu(ref frame, _viewport, scale);
+                            _drawer.DrawStopMenu(ref frame, _viewport, _scale);
                         }
                         break;
                     case LcdMenuSelect.List: {
-                            j = 0;
-                            if (listSelectNum > 5) {
-                                j = listSelectNum - 5;
+                            _j = 0;
+                            if (_listSelectNum > 5) {
+                                _j = _listSelectNum - 5;
                             }
-                            _vectorDiff = s_defaultVectorGap * j;
-                            DrawListMenu(ref frame, _viewport, scale, (_vectorText - _vectorDiff));
+                            _vectorDiff = s_defaultVectorGap * _j;
+                            _drawer.DrawListMenu(ref frame, _viewport, _scale, (_vectorText - _vectorDiff));
                         }
                         break;
                     case LcdMenuSelect.Path: {
-                            DrawPathMenu(ref frame, _viewport, scale);
+                            _drawer.DrawPathMenu(ref frame, _viewport, _scale);
                         }
                         break;
                     case LcdMenuSelect.Remote: {
-                            DrawRemoteMenu(ref frame, _viewport, scale);
+                            _drawer.DrawRemoteMenu(ref frame, _viewport, _scale);
                         }
                         break;
                     case LcdMenuSelect.Settings: {
-                            DrawSettingsMenu(ref frame, _viewport, scale);
+                            _drawer.DrawSettingsMenu(ref frame, _viewport, _scale);
                         }
                         break;
                     case LcdMenuSelect.Delete: {
-                            DrawDeleteMenu(ref frame, _viewport, scale);
+                            _drawer.DrawDeleteMenu(ref frame, _viewport, _scale);
                         }
                         break;
                     case LcdMenuSelect.Discard: {
-                            DrawDiscardMenu(ref frame, _viewport, scale);
+                            _drawer.DrawDiscardMenu(ref frame, _viewport, _scale);
                         }
                         break;
                     case LcdMenuSelect.RenameWarning: {
-                            isTick100Counting = true;
-                            DrawRenameWarning(ref frame, _viewport, scale);
-                            if (tick100counter > 5) {
-                                menuSelect = LcdMenuSelect.Main;
-                                isTick100Counting = false;
+                            _isTick100Counting = true;
+                            _drawer.DrawRenameWarning(ref frame, _viewport, _scale);
+                            if (_tick100counter > 5) {
+                                _menuSelect = LcdMenuSelect.Main;
+                                _isTick100Counting = false;
                             }
                         }
                         break;
@@ -546,294 +680,294 @@ namespace IngameScript {
             }
         }
         void Move() {
-            switch (menuSelect) {
+            switch (_menuSelect) {
                 case LcdMenuSelect.Main: {
-                        menuSelectNum = (int)mainSelect;
-                        if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
+                        _menuSelectNum = (int)_mainSelect;
+                        if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
                             CursorUp();
-                            menuSelectNum--;
-                            mainSelect = (LcdMainSelect)menuSelectNum;
+                            _menuSelectNum--;
+                            _mainSelect = (LcdMainSelect)_menuSelectNum;
                         }
-                        else if (menuSelectNum < 4 && moveSelect == LcdMove.Down) {
+                        else if (_menuSelectNum < 4 && _moveSelect == LcdMove.Down) {
                             CursorDown();
-                            menuSelectNum++;
-                            mainSelect = (LcdMainSelect)menuSelectNum;
+                            _menuSelectNum++;
+                            _mainSelect = (LcdMainSelect)_menuSelectNum;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (menuSelectNum == 0) {
-                                waypointCount = 0;
-                                distance = 0;
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_menuSelectNum == 0) {
+                                _waypointCount = 0;
+                                _distance = 0;
                                 RecordStart();
-                                menuSelect = LcdMenuSelect.Record;
+                                _menuSelect = LcdMenuSelect.Record;
                                 CursorDown();
                                 CursorDown();
                                 CursorDown();
                             }
-                            else if (menuSelectNum == 1) {
-                                menuSelect = LcdMenuSelect.List;
-                                listSelectNum = 0;
+                            else if (_menuSelectNum == 1) {
+                                _menuSelect = LcdMenuSelect.List;
+                                _listSelectNum = 0;
                                 CursorUp();
                             }
-                            else if (menuSelectNum == 2) {
-                                menuSelect = LcdMenuSelect.Remote;
+                            else if (_menuSelectNum == 2) {
+                                _menuSelect = LcdMenuSelect.Remote;
                                 _vectorTexture = s_defaultVectorTexture;
-                                remoteSelect = LcdRemoteSelect.Reverse;
+                                _remoteSelect = LcdRemoteSelect.Reverse;
                             }
-                            else if (menuSelectNum == 3) {
-                                menuSelect = LcdMenuSelect.Settings;
+                            else if (_menuSelectNum == 3) {
+                                _menuSelect = LcdMenuSelect.Settings;
                                 CursorUp();
-                                settingSelect = LcdSettingSelect.ChangeStraights;
+                                _settingSelect = LcdSettingSelect.ChangeStraights;
                             }
-                            else if (menuSelectNum == 4) {
+                            else if (_menuSelectNum == 4) {
                                 RenamePaths();
-                                tick100counter = 0;
+                                _tick100counter = 0;
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
 
                     }
                     break;
                 case LcdMenuSelect.Record: {
-                        if (moveSelect == LcdMove.Apply) {
+                        if (_moveSelect == LcdMove.Apply) {
                             RecordPause();
-                            menuSelect = LcdMenuSelect.Stop;
-                            stopSelect = LcdStopSelect.Continue;
+                            _menuSelect = LcdMenuSelect.Stop;
+                            _stopSelect = LcdStopSelect.Continue;
                             CursorUp();
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
 
                     }
                     break;
                 case LcdMenuSelect.Stop: {
-                        menuSelectNum = (int)stopSelect;
-                        if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
+                        _menuSelectNum = (int)_stopSelect;
+                        if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
                             CursorUp();
-                            menuSelectNum--;
-                            stopSelect = (LcdStopSelect)menuSelectNum;
+                            _menuSelectNum--;
+                            _stopSelect = (LcdStopSelect)_menuSelectNum;
                         }
-                        else if (menuSelectNum < 2 && moveSelect == LcdMove.Down) {
+                        else if (_menuSelectNum < 2 && _moveSelect == LcdMove.Down) {
                             CursorDown();
-                            menuSelectNum++;
-                            stopSelect = (LcdStopSelect)menuSelectNum;
+                            _menuSelectNum++;
+                            _stopSelect = (LcdStopSelect)_menuSelectNum;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (menuSelectNum == 0) {
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_menuSelectNum == 0) {
                                 RecordContinue();
-                                menuSelect = LcdMenuSelect.Record;
+                                _menuSelect = LcdMenuSelect.Record;
                                 CursorDown();
                             }
-                            else if (menuSelectNum == 1) {
+                            else if (_menuSelectNum == 1) {
                                 RecordEnd();
-                                menuSelect = LcdMenuSelect.Main;
+                                _menuSelect = LcdMenuSelect.Main;
                                 _vectorTexture = s_defaultVectorTexture;
                             }
-                            else if (menuSelectNum == 2) {
-                                menuSelect = LcdMenuSelect.Discard;
-                                discardSelect = LcdDiscardSelect.Cancel;
+                            else if (_menuSelectNum == 2) {
+                                _menuSelect = LcdMenuSelect.Discard;
+                                _discardSelect = LcdDiscardSelect.Cancel;
                                 CursorUp();
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
 
                     }
                     break;
                 case LcdMenuSelect.List: {
-                        if (listSelectNum > 0 && moveSelect == LcdMove.Up) {
-                            if (listSelectNum <= 5) {
+                        if (_listSelectNum > 0 && _moveSelect == LcdMove.Up) {
+                            if (_listSelectNum <= 5) {
                                 CursorUp();
                             }
-                            listSelectNum--;
+                            _listSelectNum--;
                         }
-                        else if (listSelectNum < _iniKeysPaths.Count() && moveSelect == LcdMove.Down) {
-                            if (listSelectNum < 5) {
+                        else if (_listSelectNum < _iniKeysPaths.Count() && _moveSelect == LcdMove.Down) {
+                            if (_listSelectNum < 5) {
                                 CursorDown();
                             }
-                            listSelectNum++;
+                            _listSelectNum++;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (listSelectNum == 0) {
-                                menuSelect = LcdMenuSelect.Main;
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_listSelectNum == 0) {
+                                _menuSelect = LcdMenuSelect.Main;
                                 CursorDown();
                             }
                             else {
-                                waypointCount = 0;
-                                distance = 0;
-                                pathName = _iniKeysPaths[listSelectNum - 1].Name;
-                                waypointList = _ini.Get(IniSectionPath, pathName).ToString().Split(';');
+                                _waypointCount = 0;
+                                _distance = 0;
+                                _pathName = _iniKeysPaths[_listSelectNum - 1].Name;
+                                _waypointList = _ini.Get(IniSectionPath, _pathName).ToString().Split(';');
                                 var vectorStart = new Vector3D(0, 0, 0);
-                                foreach (string waypoint in waypointList) {
+                                foreach (string waypoint in _waypointList) {
                                     if (waypoint != "") {
-                                        waypointCount++;
+                                        _waypointCount++;
                                     }
                                     var vector = GetVector3D(waypoint);
                                     if (vectorStart.X != 0 && vector.X != 0) {
-                                        distance += Vector3D.Distance(vectorStart, vector);
+                                        _distance += Vector3D.Distance(vectorStart, vector);
                                     }
                                     if (vector.X != 0) {
                                         vectorStart = vector;
                                     }
                                 }
-                                menuSelect = LcdMenuSelect.Path;
+                                _menuSelect = LcdMenuSelect.Path;
                                 _vectorTexture = s_defaultVectorTexture;
                                 CursorDown();
                                 CursorDown();
-                                pathSelect = LcdPathSelect.ReplaceInRemote;
+                                _pathSelect = LcdPathSelect.ReplaceInRemote;
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
                     }
                     break;
                 case LcdMenuSelect.Path: {
-                        menuSelectNum = (int)pathSelect;
-                        if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
+                        _menuSelectNum = (int)_pathSelect;
+                        if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
                             CursorUp();
-                            menuSelectNum--;
-                            pathSelect = (LcdPathSelect)menuSelectNum;
+                            _menuSelectNum--;
+                            _pathSelect = (LcdPathSelect)_menuSelectNum;
                         }
-                        else if (menuSelectNum < 3 && moveSelect == LcdMove.Down) {
+                        else if (_menuSelectNum < 3 && _moveSelect == LcdMove.Down) {
                             CursorDown();
-                            menuSelectNum++;
-                            pathSelect = (LcdPathSelect)menuSelectNum;
+                            _menuSelectNum++;
+                            _pathSelect = (LcdPathSelect)_menuSelectNum;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (menuSelectNum == 0) {
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_menuSelectNum == 0) {
                                 PathReplaceInRemote();
-                                menuSelect = LcdMenuSelect.Main;
+                                _menuSelect = LcdMenuSelect.Main;
                                 _vectorTexture = s_defaultVectorTexture;
                                 CursorDown();
                             }
-                            else if (menuSelectNum == 1) {
+                            else if (_menuSelectNum == 1) {
                                 PathAddToRemote();
-                                menuSelect = LcdMenuSelect.Main;
+                                _menuSelect = LcdMenuSelect.Main;
                                 _vectorTexture = s_defaultVectorTexture;
                                 CursorDown();
                             }
-                            else if (menuSelectNum == 2) {
-                                menuSelect = LcdMenuSelect.Delete;
-                                deleteSelect = LcdDeleteSelect.Cancel;
+                            else if (_menuSelectNum == 2) {
+                                _menuSelect = LcdMenuSelect.Delete;
+                                _deleteSelect = LcdDeleteSelect.Cancel;
                                 CursorUp();
                             }
-                            else if (menuSelectNum == 3) {
-                                menuSelect = LcdMenuSelect.List;
-                                listSelectNum = 0;
+                            else if (_menuSelectNum == 3) {
+                                _menuSelect = LcdMenuSelect.List;
+                                _listSelectNum = 0;
                                 _vectorTexture = s_defaultVectorTexture;
-                                menuSelectNum = 0;
+                                _menuSelectNum = 0;
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
 
                     }
                     break;
                 case LcdMenuSelect.Remote: {
-                        menuSelectNum = (int)remoteSelect;
-                        if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
+                        _menuSelectNum = (int)_remoteSelect;
+                        if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
                             CursorUp();
-                            menuSelectNum--;
-                            remoteSelect = (LcdRemoteSelect)menuSelectNum;
+                            _menuSelectNum--;
+                            _remoteSelect = (LcdRemoteSelect)_menuSelectNum;
                         }
-                        else if (menuSelectNum < 3 && moveSelect == LcdMove.Down) {
+                        else if (_menuSelectNum < 3 && _moveSelect == LcdMove.Down) {
                             CursorDown();
-                            menuSelectNum++;
-                            remoteSelect = (LcdRemoteSelect)menuSelectNum;
+                            _menuSelectNum++;
+                            _remoteSelect = (LcdRemoteSelect)_menuSelectNum;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (menuSelectNum == 0) {
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_menuSelectNum == 0) {
                                 ReverseWaypoints();
-                                menuSelect = LcdMenuSelect.Main;
+                                _menuSelect = LcdMenuSelect.Main;
                                 CursorDown();
                                 CursorDown();
                             }
-                            else if (menuSelectNum == 1) {
+                            else if (_menuSelectNum == 1) {
                                 _remote.ClearWaypoints();
-                                menuSelect = LcdMenuSelect.Main;
+                                _menuSelect = LcdMenuSelect.Main;
                                 CursorDown();
                             }
-                            else if (menuSelectNum == 2) {
+                            else if (_menuSelectNum == 2) {
                                 CreatePathFromRemote();
-                                menuSelect = LcdMenuSelect.Main;
+                                _menuSelect = LcdMenuSelect.Main;
                             }
-                            else if (menuSelectNum == 3) {
-                                menuSelect = LcdMenuSelect.Main;
+                            else if (_menuSelectNum == 3) {
+                                _menuSelect = LcdMenuSelect.Main;
                                 CursorUp();
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
                     }
                     break;
                 case LcdMenuSelect.Delete: {
-                        menuSelectNum = (int)deleteSelect;
-                        if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
+                        _menuSelectNum = (int)_deleteSelect;
+                        if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
                             CursorUp();
-                            menuSelectNum--;
-                            deleteSelect = (LcdDeleteSelect)menuSelectNum;
+                            _menuSelectNum--;
+                            _deleteSelect = (LcdDeleteSelect)_menuSelectNum;
                         }
-                        else if (menuSelectNum < 1 && moveSelect == LcdMove.Down) {
+                        else if (_menuSelectNum < 1 && _moveSelect == LcdMove.Down) {
                             CursorDown();
-                            menuSelectNum++;
-                            deleteSelect = (LcdDeleteSelect)menuSelectNum;
+                            _menuSelectNum++;
+                            _deleteSelect = (LcdDeleteSelect)_menuSelectNum;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (menuSelectNum == 0) {
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_menuSelectNum == 0) {
                                 PathDelete();
-                                menuSelect = LcdMenuSelect.List;
-                                listSelectNum = 0;
+                                _menuSelect = LcdMenuSelect.List;
+                                _listSelectNum = 0;
                                 _vectorTexture = s_defaultVectorTexture;
                             }
-                            else if (menuSelectNum == 1) {
-                                menuSelect = LcdMenuSelect.Path;
+                            else if (_menuSelectNum == 1) {
+                                _menuSelect = LcdMenuSelect.Path;
                                 _vectorTexture = s_defaultVectorTexture;
                                 CursorDown();
                                 CursorDown();
-                                pathSelect = LcdPathSelect.ReplaceInRemote;
+                                _pathSelect = LcdPathSelect.ReplaceInRemote;
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
                     }
                     break;
                 case LcdMenuSelect.Discard: {
-                        menuSelectNum = (int)discardSelect;
-                        if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
+                        _menuSelectNum = (int)_discardSelect;
+                        if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
                             CursorUp();
-                            menuSelectNum--;
-                            discardSelect = (LcdDiscardSelect)menuSelectNum;
+                            _menuSelectNum--;
+                            _discardSelect = (LcdDiscardSelect)_menuSelectNum;
                         }
-                        else if (menuSelectNum < 1 && moveSelect == LcdMove.Down) {
+                        else if (_menuSelectNum < 1 && _moveSelect == LcdMove.Down) {
                             CursorDown();
-                            menuSelectNum++;
-                            discardSelect = (LcdDiscardSelect)menuSelectNum;
+                            _menuSelectNum++;
+                            _discardSelect = (LcdDiscardSelect)_menuSelectNum;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (menuSelectNum == 0) {
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_menuSelectNum == 0) {
                                 PathDiscard();
-                                menuSelect = LcdMenuSelect.Main;
-                                mainSelect = LcdMainSelect.Record;
+                                _menuSelect = LcdMenuSelect.Main;
+                                _mainSelect = LcdMainSelect.Record;
                                 _vectorTexture = s_defaultVectorTexture;
                             }
-                            else if (menuSelectNum == 1) {
-                                menuSelect = LcdMenuSelect.Stop;
+                            else if (_menuSelectNum == 1) {
+                                _menuSelect = LcdMenuSelect.Stop;
                                 _vectorTexture = s_defaultVectorTexture;
                                 CursorDown();
                                 CursorDown();
-                                stopSelect = LcdStopSelect.Continue;
+                                _stopSelect = LcdStopSelect.Continue;
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
                     }
                     break;
                 case LcdMenuSelect.Settings: {
-                        menuSelectNum = (int)settingSelect;
-                        if (menuSelectNum > 0 && moveSelect == LcdMove.Up) {
+                        _menuSelectNum = (int)_settingSelect;
+                        if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
                             CursorUp();
-                            menuSelectNum--;
-                            settingSelect = (LcdSettingSelect)menuSelectNum;
+                            _menuSelectNum--;
+                            _settingSelect = (LcdSettingSelect)_menuSelectNum;
                         }
-                        else if (menuSelectNum < 2 && moveSelect == LcdMove.Down) {
+                        else if (_menuSelectNum < 2 && _moveSelect == LcdMove.Down) {
                             CursorDown();
-                            menuSelectNum++;
-                            settingSelect = (LcdSettingSelect)menuSelectNum;
+                            _menuSelectNum++;
+                            _settingSelect = (LcdSettingSelect)_menuSelectNum;
                         }
-                        else if (moveSelect == LcdMove.Apply) {
-                            if (menuSelectNum == 0) {
+                        else if (_moveSelect == LcdMove.Apply) {
+                            if (_menuSelectNum == 0) {
                                 if (_recorder.DistanceOnStraights >= 500) {
                                     _recorder.DistanceOnStraights += 100;
                                 }
@@ -844,7 +978,7 @@ namespace IngameScript {
                                     _recorder.DistanceOnStraights = 200;
                                 }
                             }
-                            else if (menuSelectNum == 1) {
+                            else if (_menuSelectNum == 1) {
                                 if (_recorder.DistanceInTurns >= 100) {
                                     _recorder.DistanceInTurns += 20;
                                 }
@@ -855,19 +989,19 @@ namespace IngameScript {
                                     _recorder.DistanceInTurns = 20;
                                 }
                             }
-                            else if (menuSelectNum == 2) {
-                                menuSelect = LcdMenuSelect.Main;
+                            else if (_menuSelectNum == 2) {
+                                _menuSelect = LcdMenuSelect.Main;
                                 CursorUp();
                                 Save();
                                 Load();
                             }
                         }
-                        moveSelect = LcdMove.None;
+                        _moveSelect = LcdMove.None;
                     }
                     break;
                 case LcdMenuSelect.RenameWarning: {
-                        if (moveSelect == LcdMove.Apply || moveSelect == LcdMove.Down || moveSelect == LcdMove.Up) {
-                            menuSelect = LcdMenuSelect.Main;
+                        if (_moveSelect == LcdMove.Apply || _moveSelect == LcdMove.Down || _moveSelect == LcdMove.Up) {
+                            _menuSelect = LcdMenuSelect.Main;
                         }
                     }
                     break;
@@ -879,264 +1013,7 @@ namespace IngameScript {
         void CursorDown() {
             _vectorTexture += s_defaultVectorGap;
         }
-        public void DrawMainMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = "Start Recording";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "List of Paths";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Remote Control";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Settings";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Rename Paths";
-            frame.Add(_spriteText);
-        }
-        public void DrawRecordMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Waypoints: {waypointCount}";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"Distance: {distance:0.0}m";
-            frame.Add(_spriteText);
-            positionText += (s_defaultVectorGap * 2) * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Pause Recording";
-            frame.Add(_spriteText);
-        }
-        public void DrawStopMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Waypoints: {waypointCount}";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"Distance: {distance:0.0}m";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Continue";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Save";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Discard";
-            frame.Add(_spriteText);
-        }
-        public void DrawListMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale, Vector2 vectorText) {
-            var positionText = (vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Back";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            foreach (MyIniKey iniKey in _iniKeysPaths) {
-                positionText += s_defaultVectorGap * scale;
-                _spriteText.Position = positionText;
-                _spriteText.Data = iniKey.Name;
-                frame.Add(_spriteText);
-            }
-        }
-        public void DrawPathMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Name: {pathName}";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"WP:{waypointCount},Distance:{distance:0.0}m";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Replace in Remote";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Add to Remote";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "DELETE";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Back";
-            frame.Add(_spriteText);
-        }
-        public void DrawRemoteMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Reverse waypoints";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"Clear waypoints";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"New path from WP";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"Back";
-            frame.Add(_spriteText);
-        }
-        public void DrawDeleteMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Delete path:";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"{pathName} ?";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Yes";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Cancel";
-            frame.Add(_spriteText);
-        }
-        public void DrawDiscardMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Do you really want to";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"discard recorded path?";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"Yes";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"Cancel";
-            frame.Add(_spriteText);
-        }
-        public void DrawSettingsMenu(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            var positionTexture = _vectorTexture + viewport.Position;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteTexture.Position = positionTexture * scale;
-            _spriteTexture.Size *= scale;
-            _spriteText.Position = positionText;
-            _spriteText.RotationOrScale *= scale;
-            _spriteText.Data = $"Distance between WP";
-            frame.Add(_spriteText);
-            frame.Add(_spriteTexture);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = $"Straights:{_recorder.DistanceOnStraights}m,Turns:{_recorder.DistanceInTurns}m";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Distance on straights +";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Distance while turning +";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Back";
-            frame.Add(_spriteText);
-        }
-        public void DrawRenameWarning(ref MySpriteDrawFrame frame, RectangleF viewport, float scale) {
-            var positionText = (_vectorText + viewport.Position) * scale;
-            _spriteText = _sprites.SpriteText;
-            _spriteTexture = _sprites.SpriteTexture;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "Nothing to rename";
-            _spriteText.RotationOrScale *= scale;
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            if (_iniKeysPaths.Count == 0) {
-                _spriteText.Data = "Record some paths,";
-                frame.Add(_spriteText);
-                positionText += s_defaultVectorGap * scale;
-                _spriteText.Position = positionText;
-            }
-            _spriteText.Data = "check custom data";
-            frame.Add(_spriteText);
-            positionText += s_defaultVectorGap * scale;
-            _spriteText.Position = positionText;
-            _spriteText.Data = "of programable block";
-            frame.Add(_spriteText);
-        }
+
 
 
     }

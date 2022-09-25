@@ -29,16 +29,16 @@ namespace IngameScript {
             public List<IMyShipController> ShipControllers { get { return _shipControllers; } }
             IMyRemoteControl _remoteControl;
             IMyCockpit _cockpit;
-            bool isCockpit = false;
-            bool isRemote = false;
-            string blocksName = "PathManager";
+            bool _isCockpit = false;
+            bool _isRemote = false;
+            string _blocksName = "PathManager";
             public string BlocksName { get; set; }
             public Init(Program program) {
                 _program = program;
             }
             public List<IMyTerminalBlock> GetMyTerminalBlocks() {
                 _allGroupedBlocks.Clear();
-                _program.GridTerminalSystem.SearchBlocksOfName(blocksName, _allGroupedBlocks);
+                _program.GridTerminalSystem.SearchBlocksOfName(_blocksName, _allGroupedBlocks);
                 return _allGroupedBlocks;
             }
             public IMyCockpit GetCockpit() {
@@ -47,32 +47,35 @@ namespace IngameScript {
                     _shipControllers.Add(cockpit);
                     if (cockpit.IsUnderControl) {
                         _cockpit = cockpit;
-                        isCockpit = true;
+                        _isCockpit = true;
                     }
                 }
-                if (!isCockpit && _cockpits.Count > 0) {
+                if (!_isCockpit && _cockpits.Count > 0) {
                     _cockpit = _cockpits[0];
-                    isCockpit = true;
+                    _isCockpit = true;
                 }
-                if (!isCockpit) {
+                if (!_isCockpit) {
                     _program.Echo("No cockpit detected.");
                 }
                 return _cockpit;
             }
             public IMyRemoteControl GetRemoteControl() {
                 _program.GridTerminalSystem.GetBlocksOfType(_remotes, remote => remote.IsSameConstructAs(_program.Me));
-                foreach (IMyRemoteControl remote in _remotes) {
-                    _shipControllers.Add(remote);
-                    if (remote.IsUnderControl) {
-                        _remoteControl = remote;
-                        isRemote = true;
+                if (_remotes.Count > 0) {
+                    foreach (IMyRemoteControl remote in _remotes) {
+                        _shipControllers.Add(remote);
+                        if (remote.IsUnderControl) {
+                            _remoteControl = remote;
+                            _isRemote = true;
+                        }
+                    }
+                    if (!_isRemote) {
+                        { _remoteControl = _remotes[0]; }
                     }
                 }
-                if (!isRemote && _remotes.Count > 0) {
-                    { _remoteControl = _remotes[0]; }
-                }
                 else {
-                    throw new Exception("\nNo remote control found.\nRecompile me after there is one.\n");
+                    _program.Echo("\nNo remote control found.\nRecompile me after there is one.\nOr set Vehicle = false\nin my Custom Data\n");
+                    _remoteControl = null;
                 }
                 return _remoteControl;
             }
