@@ -1,4 +1,4 @@
-﻿Path Manager v0.99
+﻿Path Manager v1.0
 
 For LCD interface add "PathManager" to the name of block.
 If the block has more displays, check the custom data of that block to switch displays.
@@ -12,6 +12,14 @@ To control the script through LCD interface use these 3 arguments:
 
 For more commands visit workshop page.
 
+Changelog:
+v1.0:
+	- added ability to delete last waypoint while recording is paused (down to first waypoint)
+	- you can now see the position of last waypoint on the Compass inspired by the Elite Dangerous one. It's really simple navigation tool:
+		- If the smaller circle is Solid, then the waypoint is in front of you.
+		- If the smaller circle is Hollow, then the waypoint is behind you.
+		- If the smaller circle is in the middle of larger circle, then the last waypoint is right ahead of you/behind you.
+	
 As of v0.99 You can now:
 	- set up Command Center, where you can store your paths (See Config in Custom Data)
 	- CC can also be a vehicle.

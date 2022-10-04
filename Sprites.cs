@@ -21,9 +21,7 @@ using VRageMath;
 namespace IngameScript {
     partial class Program {
         public class Sprites {
-            Program _program;
-            public Sprites(Program program) {
-                _program = program;
+            public Sprites() {
             }
 
             MySprite _spriteText = new MySprite() {
@@ -34,22 +32,43 @@ namespace IngameScript {
                 Alignment = TextAlignment.LEFT,
                 FontId = "White"
             };
-            MySprite _spriteTexture = new MySprite() {
+            MySprite _spriteCursor = new MySprite() {
                 Type = SpriteType.TEXTURE,
                 Data = "AH_TextBox",
                 Size = new Vector2(600, 30),
                 Color = Color.White.Alpha(0.26f),
                 Alignment = TextAlignment.CENTER
             };
+            MySprite _spriteCircleLG = new MySprite() {
+                Type = SpriteType.TEXTURE,
+                Data = "CircleHollow",
+                Size = new Vector2(50, 50),
+                Color = Color.White.Alpha(0.36f),
+                Alignment = TextAlignment.CENTER
+            };
+            MySprite _spriteCircleSM = new MySprite() {
+                Type = SpriteType.TEXTURE,
+                Data = "Circle",
+                Size = new Vector2(10, 10),
+                Color = Color.White,
+                Alignment = TextAlignment.CENTER
+            };
             public MySprite SpriteText {
                 get { return _spriteText; }
                 set { _spriteText = value; }
             }
-            public MySprite SpriteTexture {
-                get { return _spriteTexture; }
-                set { _spriteTexture = value; }
+            public MySprite SpriteCursor {
+                get { return _spriteCursor; }
+                set { _spriteCursor = value; }
             }
-
+            public MySprite SpriteCircleLG {
+                get { return _spriteCircleLG; }
+                set { _spriteCircleLG = value; }
+            }
+            public MySprite SpriteCircleSM {
+                get { return _spriteCircleSM; }
+                set { _spriteCircleSM = value; }
+            }
 
         }
     }

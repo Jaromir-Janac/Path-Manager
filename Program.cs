@@ -37,38 +37,54 @@ namespace IngameScript {
         MyIni _iniMessage = new MyIni();
         List<MyIniKey> _iniKeysPaths = new List<MyIniKey>();
         List<MyIniKey> _iniKeys = new List<MyIniKey>();
+        Vector3D _vectorLastWP;
+        Vector3D _vectorNormal;
+        Vector2 _vector2Compass = new Vector2(0, 0);
         const string IniSectionLCD = "PathManager";
         const string IniKeyLCD = "Display";
-        const string IniSectionPath = "PathList";
+        const string IniSectionPath = "Path list";
+        const string IniSectionWaypoint = "Path & Waypoint list";
         const string IniSectionConfig = "Config";
-        const string IniKeyWayNum = "WayNum";
+        const string IniKeyPathNum = "WayNum";
         const string IniKeyDistanceStraight = "DistanceOnStraights";
         const string IniKeyDistanceTurns = "DistanceInTurns";
         const string IniKeyIsVehicle = "Vehicle";
         const string IniKeyIsCC = "Command Center";
+        const string IniKeyBroadcastTag = "Broadcast Tag";
         const string True = "true";
         const string False = "false";
         const int DefIntValue = 0;
         RectangleF _rectangleF;
         IMyRemoteControl _remote;
         IMyCockpit _cockpit;
+        IMyCameraBlock _camera;
         List<IMyTerminalBlock> _allNamedBlocks = new List<IMyTerminalBlock>();
         List<IMyTextSurface> _textSurfaces = new List<IMyTextSurface>();
+        List<IMyTextSurfaceProvider> _textSurfaceProviders = new List<IMyTextSurfaceProvider>();
         RectangleF _viewport;
         List<RectangleF> _viewports = new List<RectangleF>();
         float _scale;
         StringBuilder _strBuild = new StringBuilder();
         string _pathName = "";
-        int _pathNum;
+        int _pathNum = 0;
         int _j = 0;
         bool _isRecording = false;
+        bool _isPaused = false;
         int _tick100counter = 0;
         bool _isTick100Counting = false;
         int _menuSelectNum = 1;
         int _listSelectNum = 1;
         int _waypointCount = 0;
         int _waypointNum = 1;
+        public int WaypointCount {
+            get { return _waypointCount; }
+            set { _waypointCount = value; }
+        }
         double _distance = 0;
+        public double Distance {
+            get { return _distance; }
+            set { _distance = value; }
+        }
         string[] _xyz;
         double _x;
         double _y;
@@ -86,61 +102,15 @@ namespace IngameScript {
         LcdDiscardSelect _discardSelect = LcdDiscardSelect.Cancel;
         LcdSettingSelect _settingSelect = LcdSettingSelect.ChangeStraights;
         LcdMove _moveSelect = LcdMove.None;
-        enum LcdMenuSelect {
-            Main,
-            Record,
-            Stop,
-            List,
-            Path,
-            Remote,
-            Settings,
-            Delete,
-            Discard,
-            RenameWarning
-        }
-        enum LcdMainSelect {
-            Record,
-            List,
-            Remote,
-            Settings,
-            Rename
-        }
-        enum LcdStopSelect {
-            Continue,
-            Save,
-            Discard
-        }
-        enum LcdPathSelect {
-            ReplaceInRemote,
-            AddToRemote,
-            Back,
-            Delete
-        }
-        enum LcdRemoteSelect {
-            Reverse,
-            Clear,
-            AddPath,
-            Back
-        }
-        enum LcdDeleteSelect {
-            Yes,
-            Cancel
-        }
-        enum LcdDiscardSelect {
-            Yes,
-            Cancel
-        }
-        enum LcdSettingSelect {
-            ChangeStraights,
-            ChangeTurns,
-            Back
-        }
-        enum LcdMove {
-            None,
-            Up,
-            Down,
-            Apply
-        }
+        enum LcdMenuSelect { Main, Record, Stop, List, Path, Remote, Settings, Delete, Discard, WarningRename, WarningRemote }
+        enum LcdMainSelect { Record, List, Remote, Settings, Rename }
+        enum LcdStopSelect { Continue, Save, Discard }
+        enum LcdPathSelect { ReplaceInRemote, AddToRemote, Back, Delete }
+        enum LcdRemoteSelect { Reverse, Clear, AddPath, Back }
+        enum LcdDeleteSelect { Yes, Cancel }
+        enum LcdDiscardSelect { Yes, Cancel }
+        enum LcdSettingSelect { ChangeStraights, ChangeTurns, Back }
+        enum LcdMove { None, Up, Down, Apply }
         IMyBroadcastListener _myBroadcastListener;
         string _broadCastTag = "Path Manager";
         const string SendMePathList = "SendMePathList";
@@ -150,7 +120,7 @@ namespace IngameScript {
             Runtime.UpdateFrequency = UpdateFrequency.Update10 | UpdateFrequency.Update100;
             _init = new Init(this);
             _recorder = new Recorder(this);
-            _sprites = new Sprites(this);
+            _sprites = new Sprites();
             _drawer = new Drawer(this);
             Load();
             Initialize();
@@ -158,10 +128,11 @@ namespace IngameScript {
             _myBroadcastListener.SetMessageCallback(_broadCastTag);
         }
         public void Save() {
-            _ini.Set(IniSectionConfig, IniKeyWayNum, _pathNum);
+            _ini.Set(IniSectionConfig, IniKeyPathNum, _pathNum);
             _ini.Set(IniSectionConfig, IniKeyDistanceStraight, _recorder.DistanceOnStraights);
             _ini.Set(IniSectionConfig, IniKeyDistanceTurns, _recorder.DistanceInTurns);
             string customDataMe = Me.CustomData;
+            _customDataMe.Clear();
             _customDataMe.TryParse(customDataMe);
             string vehicle = _customDataMe.Get(IniSectionConfig, IniKeyIsVehicle).ToString();
             string cc = _customDataMe.Get(IniSectionConfig, IniKeyIsCC).ToString();
@@ -181,13 +152,14 @@ namespace IngameScript {
                     _ini.Set(IniSectionConfig, IniKeyIsCC, False);
                 }
             }
+            _ini.Set(IniSectionConfig, IniKeyBroadcastTag, _broadCastTag);
             Storage = _ini.ToString();
         }
         public void Load() {
             _ini.Clear();
             if (_ini.TryParse(Storage)) {
-                if (_ini.Get(IniSectionConfig, IniKeyWayNum).ToInt32() != 0) {
-                    _pathNum = _ini.Get(IniSectionConfig, IniKeyWayNum).ToInt32();
+                if (_ini.Get(IniSectionConfig, IniKeyPathNum).ToInt32() != 0) {
+                    _pathNum = _ini.Get(IniSectionConfig, IniKeyPathNum).ToInt32();
                 }
                 if (_ini.Get(IniSectionConfig, IniKeyDistanceStraight).ToInt32() != 0) {
                     _recorder.DistanceOnStraights = _ini.Get(IniSectionConfig, IniKeyDistanceStraight).ToInt32();
@@ -212,6 +184,9 @@ namespace IngameScript {
                     else if (value == False) {
                         _isCC = false;
                     }
+                }
+                if (_ini.Get(IniSectionConfig, IniKeyBroadcastTag).ToString() != "") {
+                    _broadCastTag = _ini.Get(IniSectionConfig, IniKeyBroadcastTag).ToString();
                 }
             }
             GetListOfPaths();
@@ -261,19 +236,27 @@ namespace IngameScript {
                     }
                     break;
                 case "record start": {
-                        RecordStart();
+                        if (!_isRecording && !_isPaused) {
+                            RecordStart();
+                        }
                     }
                     break;
                 case "record end": {
-                        RecordEnd();
+                        if (_isRecording || _isPaused) {
+                            RecordEnd();
+                        }
                     }
                     break;
                 case "record pause": {
-                        RecordPause();
+                        if (_isRecording) {
+                            RecordPause();
+                        }
                     }
                     break;
                 case "record continue": {
-                        RecordContinue();
+                        if (_isPaused) {
+                            RecordContinue();
+                        }
                     }
                     break;
                 case "reverse waypoints": {
@@ -281,7 +264,9 @@ namespace IngameScript {
                     }
                     break;
                 case "clear waypoints": {
-                        _remote.ClearWaypoints();
+                        if (_remote != null) {
+                            _remote.ClearWaypoints();
+                        }
                     }
                     break;
                 case "initialize": {
@@ -317,8 +302,14 @@ namespace IngameScript {
                 if (_isRecording) {
                     WayRecording();
                 }
+                if (_isPaused) {
+                    PositionToLastWP();
+                }
             }
+
         }
+
+        // ANTENNA COMMUNICATION
         void RecieveMessage() {
             while (_myBroadcastListener.HasPendingMessage) {
                 _myIGCMessage = _myBroadcastListener.AcceptMessage();
@@ -335,7 +326,6 @@ namespace IngameScript {
                     }
                 }
             }
-
         }
         void SendPathList() {
             GetListOfPaths();
@@ -343,7 +333,7 @@ namespace IngameScript {
             foreach (MyIniKey iniKey in _iniKeysPaths) {
                 _iniMessage.Set(IniSectionPath, iniKey.Name, _ini.Get(IniSectionPath, iniKey.Name).ToString());
             }
-            _iniMessage.Set(IniSectionConfig, IniKeyWayNum, _waypointNum);
+            _iniMessage.Set(IniSectionConfig, IniKeyPathNum, _pathNum);
             IGC.SendBroadcastMessage(_broadCastTag, _iniMessage.ToString());
         }
         void RetrievePathList() {
@@ -381,16 +371,12 @@ namespace IngameScript {
             Save();
             Load();
         }
+
+        // PATH MANAGEMENT
+
         void GetListOfPaths() {
             _iniKeysPaths.Clear();
             _ini.GetKeys(IniSectionPath, _iniKeysPaths);
-        }
-        void RenamePaths() {
-            CustomDataParse();
-            Save();
-            Load();
-            GetListOfPaths();
-            CustomDataWrite();
         }
         void CustomDataWrite() {
             Me.CustomData = "";
@@ -400,9 +386,21 @@ namespace IngameScript {
             }
             _customDataMe.Set(IniSectionConfig, IniKeyIsVehicle, _isVehicle);
             _customDataMe.Set(IniSectionConfig, IniKeyIsCC, _isCC);
+            _customDataMe.Set(IniSectionConfig, IniKeyBroadcastTag, _broadCastTag);
             _customDataMe.SetEndComment("Recompile me after changing values in [Config]");
+            foreach (MyIniKey iniKey in _iniKeysPaths) {
+                _customDataMe.Set(IniSectionWaypoint, iniKey.Name, _ini.Get(IniSectionPath, iniKey.Name).ToString());
+            }
             Me.CustomData = _customDataMe.ToString();
             GetTextSurfaces();
+
+        }
+        void RenamePaths() {
+            CustomDataParse();
+            Save();
+            Load();
+            GetListOfPaths();
+            CustomDataWrite();
         }
         void CustomDataParse() {
             GetListOfPaths();
@@ -477,17 +475,19 @@ namespace IngameScript {
                 }
             }
             if (!isRenamed) {
-                _menuSelect = LcdMenuSelect.RenameWarning;
+                _menuSelect = LcdMenuSelect.WarningRename;
             }
         }
-        void WayRecording() {
-            _recorder.CheckDistance();
-        }
+
+        // PATH Recording
         void RecordStart() {
             _cockpit = _init.GetCockpit();
             _waypointCount = 0;
             _recorder.StartRecording(_pathNum.ToString());
             _isRecording = true;
+        }
+        void WayRecording() {
+            _recorder.CheckDistance();
         }
         void RecordContinue() {
             _cockpit = _init.GetCockpit();
@@ -495,6 +495,7 @@ namespace IngameScript {
         }
         void RecordPause() {
             _isRecording = false;
+            _isPaused = true;
         }
         void RecordEnd() {
             _recorder.SaveWay();
@@ -532,17 +533,6 @@ namespace IngameScript {
                 Load();
             }
         }
-        Vector3D GetVector3D(string str) {
-            var vector = new Vector3D();
-            if (str != "") {
-                _xyz = str.Split(':');
-                _x = Convert.ToDouble(_xyz[1].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                _y = Convert.ToDouble(_xyz[2].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                _z = Convert.ToDouble(_xyz[3].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                vector = new Vector3D(_x, _y, _z);
-            }
-            return vector;
-        }
         void PathReplaceInRemote() {
             _remote.ClearWaypoints();
             _waypointNum = 1;
@@ -565,16 +555,70 @@ namespace IngameScript {
                 _remote.AddWaypoint(waypointInfo);
             }
         }
+        void PositionToLastWP() {
+            _vectorNormal = GetVectorNormalize(GetVectorDirectionLocal(GetVectorDirection(_remote.GetPosition(), _vectorLastWP)));
+            _vector2Compass = new Vector2((float)_vectorNormal.X, (float)_vectorNormal.Y * -1);
+        }
+        Vector3D GetVector3D(string str) {
+            var vector = new Vector3D();
+            if (str != "") {
+                _xyz = str.Split(':');
+                _x = Convert.ToDouble(_xyz[1].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
+                _y = Convert.ToDouble(_xyz[2].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
+                _z = Convert.ToDouble(_xyz[3].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
+                vector = new Vector3D(_x, _y, _z);
+            }
+            return vector;
+        }
+        Vector3D GetVectorNormalize(Vector3D vector) {
+            return vector / vector.Length();
+        }
+        Vector3D GetVectorDirection(Vector3D start, Vector3D end) {
+            return end - start;
+        }
+        Vector3D GetVectorDirectionLocal(Vector3D vectorWorld) {
+            return Vector3D.TransformNormal(vectorWorld, MatrixD.Transpose(_remote.WorldMatrix));
+        }
+
+        // CAMERA
+
+        void GetCameraWapoint() {
+            GetCamera();
+            if (_camera != null) {
+                //_camera.EnableRaycast = true;
+                //_debug.PrintChat($"{_camera.Raycast(2000).HitPosition.Value}");
+                //_camera.EnableRaycast = false;
+            }
+        }
+        void GetCamera() {
+            foreach (IMyTerminalBlock terminalBlock in _allNamedBlocks) {
+                if (terminalBlock is IMyCameraBlock) {
+                    _camera = terminalBlock as IMyCameraBlock;
+                    if (_camera.IsActive) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // TEXT SURFACES
+
         void GetTextSurfaces() {
             if (_isVehicle) {
                 _textSurfaces.Clear();
-                foreach (IMyTextSurfaceProvider textSurface in _allNamedBlocks) {
+                _textSurfaceProviders.Clear();
+                foreach (IMyTerminalBlock terminalBlock in _allNamedBlocks) {
+                    if (terminalBlock is IMyTextSurfaceProvider) {
+                        _textSurfaceProviders.Add(terminalBlock as IMyTextSurfaceProvider);
+                    }
+                }
+                foreach (IMyTextSurfaceProvider textSurface in _textSurfaceProviders) {
                     int count = textSurface.SurfaceCount;
                     if (textSurface is IMyTextPanel) {
                         IMyTextPanel textPanel = textSurface as IMyTextPanel;
                         _textSurfaces.Add(textSurface.GetSurface(0));
                     }
-                    else if (textSurface is IMyTerminalBlock) {
+                    else if (textSurface is IMyCockpit || textSurface is IMyProgrammableBlock) {
                         IMyTerminalBlock cockpitLcd = textSurface as IMyTerminalBlock;
                         _customDataStr = cockpitLcd.CustomData;
                         _customData.TryParse(_customDataStr);
@@ -605,6 +649,9 @@ namespace IngameScript {
                 }
             }
         }
+
+        // DRAWING / MOVING
+
         void Drawing() {
             for (int i = 0; i < _textSurfaces.Count; i++) {
                 var frame = _textSurfaces[i].DrawFrame();
@@ -634,20 +681,30 @@ namespace IngameScript {
                         }
                         break;
                     case LcdMenuSelect.Stop: {
-                            _drawer.DrawStopMenu(ref frame, _viewport, _scale);
+                            _j = 0;
+                            if (_menuSelectNum > 2) {
+                                _j = _menuSelectNum - 2;
+                            }
+                            _vectorDiff = s_defaultVectorGap * _j;
+                            _drawer.DrawStopMenu(ref frame, _viewport, _scale, (_vectorText - _vectorDiff));
                         }
                         break;
                     case LcdMenuSelect.List: {
                             _j = 0;
-                            if (_listSelectNum > 5) {
-                                _j = _listSelectNum - 5;
+                            if (_listSelectNum > 4) {
+                                _j = _listSelectNum - 4;
                             }
                             _vectorDiff = s_defaultVectorGap * _j;
                             _drawer.DrawListMenu(ref frame, _viewport, _scale, (_vectorText - _vectorDiff));
                         }
                         break;
                     case LcdMenuSelect.Path: {
-                            _drawer.DrawPathMenu(ref frame, _viewport, _scale);
+                            _j = 0;
+                            if (_menuSelectNum > 2) {
+                                _j = _menuSelectNum - 2;
+                            }
+                            _vectorDiff = s_defaultVectorGap * _j;
+                            _drawer.DrawPathMenu(ref frame, _viewport, _scale, (_vectorText - _vectorDiff));
                         }
                         break;
                     case LcdMenuSelect.Remote: {
@@ -666,9 +723,18 @@ namespace IngameScript {
                             _drawer.DrawDiscardMenu(ref frame, _viewport, _scale);
                         }
                         break;
-                    case LcdMenuSelect.RenameWarning: {
+                    case LcdMenuSelect.WarningRename: {
                             _isTick100Counting = true;
-                            _drawer.DrawRenameWarning(ref frame, _viewport, _scale);
+                            _drawer.DrawWarningRename(ref frame, _viewport, _scale);
+                            if (_tick100counter > 5) {
+                                _menuSelect = LcdMenuSelect.Main;
+                                _isTick100Counting = false;
+                            }
+                        }
+                        break;
+                    case LcdMenuSelect.WarningRemote: {
+                            _isTick100Counting = true;
+                            _drawer.DrawWarningRemote(ref frame, _viewport, _scale);
                             if (_tick100counter > 5) {
                                 _menuSelect = LcdMenuSelect.Main;
                                 _isTick100Counting = false;
@@ -695,13 +761,19 @@ namespace IngameScript {
                         }
                         else if (_moveSelect == LcdMove.Apply) {
                             if (_menuSelectNum == 0) {
-                                _waypointCount = 0;
-                                _distance = 0;
-                                RecordStart();
-                                _menuSelect = LcdMenuSelect.Record;
-                                CursorDown();
-                                CursorDown();
-                                CursorDown();
+                                if (_remote != null) {
+                                    _waypointCount = 0;
+                                    _distance = 0;
+                                    RecordStart();
+                                    _menuSelect = LcdMenuSelect.Record;
+                                    CursorDown();
+                                    CursorDown();
+                                    CursorDown();
+                                }
+                                else {
+                                    _tick100counter = 0;
+                                    _menuSelect = LcdMenuSelect.WarningRemote;
+                                }
                             }
                             else if (_menuSelectNum == 1) {
                                 _menuSelect = LcdMenuSelect.List;
@@ -709,9 +781,15 @@ namespace IngameScript {
                                 CursorUp();
                             }
                             else if (_menuSelectNum == 2) {
-                                _menuSelect = LcdMenuSelect.Remote;
-                                _vectorTexture = s_defaultVectorTexture;
-                                _remoteSelect = LcdRemoteSelect.Reverse;
+                                if (_remote != null) {
+                                    _menuSelect = LcdMenuSelect.Remote;
+                                    _vectorTexture = s_defaultVectorTexture;
+                                    _remoteSelect = LcdRemoteSelect.Reverse;
+                                }
+                                else {
+                                    _tick100counter = 0;
+                                    _menuSelect = LcdMenuSelect.WarningRemote;
+                                }
                             }
                             else if (_menuSelectNum == 3) {
                                 _menuSelect = LcdMenuSelect.Settings;
@@ -741,12 +819,16 @@ namespace IngameScript {
                 case LcdMenuSelect.Stop: {
                         _menuSelectNum = (int)_stopSelect;
                         if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
-                            CursorUp();
+                            if (_menuSelectNum <= 2) {
+                                CursorUp();
+                            }
                             _menuSelectNum--;
                             _stopSelect = (LcdStopSelect)_menuSelectNum;
                         }
-                        else if (_menuSelectNum < 2 && _moveSelect == LcdMove.Down) {
-                            CursorDown();
+                        else if (_menuSelectNum < 3 && _moveSelect == LcdMove.Down) {
+                            if (_menuSelectNum < 2) {
+                                CursorDown();
+                            }
                             _menuSelectNum++;
                             _stopSelect = (LcdStopSelect)_menuSelectNum;
                         }
@@ -762,6 +844,12 @@ namespace IngameScript {
                                 _vectorTexture = s_defaultVectorTexture;
                             }
                             else if (_menuSelectNum == 2) {
+                                if (_waypointCount > 1) {
+                                    _waypointCount--;
+                                    _recorder.DeleteLastWaypoint();
+                                }
+                            }
+                            else if (_menuSelectNum == 3) {
                                 _menuSelect = LcdMenuSelect.Discard;
                                 _discardSelect = LcdDiscardSelect.Cancel;
                                 CursorUp();
@@ -773,13 +861,13 @@ namespace IngameScript {
                     break;
                 case LcdMenuSelect.List: {
                         if (_listSelectNum > 0 && _moveSelect == LcdMove.Up) {
-                            if (_listSelectNum <= 5) {
+                            if (_listSelectNum <= 4) {
                                 CursorUp();
                             }
                             _listSelectNum--;
                         }
                         else if (_listSelectNum < _iniKeysPaths.Count() && _moveSelect == LcdMove.Down) {
-                            if (_listSelectNum < 5) {
+                            if (_listSelectNum < 4) {
                                 CursorDown();
                             }
                             _listSelectNum++;
@@ -820,12 +908,16 @@ namespace IngameScript {
                 case LcdMenuSelect.Path: {
                         _menuSelectNum = (int)_pathSelect;
                         if (_menuSelectNum > 0 && _moveSelect == LcdMove.Up) {
-                            CursorUp();
+                            if (_menuSelectNum <= 2) {
+                                CursorUp();
+                            }
                             _menuSelectNum--;
                             _pathSelect = (LcdPathSelect)_menuSelectNum;
                         }
                         else if (_menuSelectNum < 3 && _moveSelect == LcdMove.Down) {
-                            CursorDown();
+                            if (_menuSelectNum < 2) {
+                                CursorDown();
+                            }
                             _menuSelectNum++;
                             _pathSelect = (LcdPathSelect)_menuSelectNum;
                         }
@@ -999,7 +1091,13 @@ namespace IngameScript {
                         _moveSelect = LcdMove.None;
                     }
                     break;
-                case LcdMenuSelect.RenameWarning: {
+                case LcdMenuSelect.WarningRename: {
+                        if (_moveSelect == LcdMove.Apply || _moveSelect == LcdMove.Down || _moveSelect == LcdMove.Up) {
+                            _menuSelect = LcdMenuSelect.Main;
+                        }
+                    }
+                    break;
+                case LcdMenuSelect.WarningRemote: {
                         if (_moveSelect == LcdMove.Apply || _moveSelect == LcdMove.Down || _moveSelect == LcdMove.Up) {
                             _menuSelect = LcdMenuSelect.Main;
                         }
