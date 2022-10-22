@@ -23,23 +23,38 @@ namespace IngameScript {
         bool _isCC = false;
         Init _init;
         Recorder _recorder;
-        Sprites _sprites;
         Drawer _drawer;
         static Vector2 s_defaultVectorTexture = new Vector2(240, 14);
         static Vector2 s_defaultVectorText = new Vector2(5, 3);
         static Vector2 s_defaultVectorGap = new Vector2(0, 30);
         Vector2 _vectorDiff;
-        Vector2 _vectorTexture = s_defaultVectorTexture;
         Vector2 _vectorText = s_defaultVectorText;
+        public Vector2 VectorText {
+            get { return _vectorText; }
+        }
+        Vector2 _vectorTexture = s_defaultVectorTexture;
+        public Vector2 VectorTexture {
+            get { return _vectorTexture; }
+        }
         MyIni _ini = new MyIni();
         MyIni _customData = new MyIni();
         MyIni _customDataMe = new MyIni();
         MyIni _iniMessage = new MyIni();
         List<MyIniKey> _iniKeysPaths = new List<MyIniKey>();
+        public List<MyIniKey> IniKeysPaths {
+            get { return _iniKeysPaths; }
+        }
         List<MyIniKey> _iniKeys = new List<MyIniKey>();
         Vector3D _vectorLastWP;
+        public Vector3D VectorLastWP {
+            get { return _vectorLastWP; }
+            set { _vectorLastWP = value; }
+        }
         Vector3D _vectorNormal;
         Vector2 _vector2Compass = new Vector2(0, 0);
+        public Vector2 Vector2Compass {
+            get { return _vector2Compass; }
+        }
         const string IniSectionLCD = "PathManager";
         const string IniKeyLCD = "Display";
         const string IniSectionPath = "Path list";
@@ -56,7 +71,13 @@ namespace IngameScript {
         const int DefIntValue = 0;
         RectangleF _rectangleF;
         IMyRemoteControl _remote;
+        public IMyRemoteControl Remote {
+            get { return _remote; }
+        }
         IMyCockpit _cockpit;
+        public IMyCockpit Cockpit {
+            get { return _cockpit; }
+        }
         IMyCameraBlock _camera;
         List<IMyTerminalBlock> _allNamedBlocks = new List<IMyTerminalBlock>();
         List<IMyTextSurface> _textSurfaces = new List<IMyTextSurface>();
@@ -66,6 +87,9 @@ namespace IngameScript {
         float _scale;
         StringBuilder _strBuild = new StringBuilder();
         string _pathName = "";
+        public string PathName {
+            get { return _pathName; }
+        }
         int _pathNum = 0;
         int _j = 0;
         bool _isRecording = false;
@@ -74,8 +98,8 @@ namespace IngameScript {
         bool _isTick100Counting = false;
         int _menuSelectNum = 1;
         int _listSelectNum = 1;
-        int _waypointCount = 0;
         int _waypointNum = 1;
+        int _waypointCount = 0;
         public int WaypointCount {
             get { return _waypointCount; }
             set { _waypointCount = value; }
@@ -120,7 +144,6 @@ namespace IngameScript {
             Runtime.UpdateFrequency = UpdateFrequency.Update10 | UpdateFrequency.Update100;
             _init = new Init(this);
             _recorder = new Recorder(this);
-            _sprites = new Sprites();
             _drawer = new Drawer(this);
             Load();
             Initialize();

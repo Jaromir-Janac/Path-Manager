@@ -49,16 +49,16 @@ namespace IngameScript {
             }
             public void StartRecording(string wayName) {
                 _vectorsRecorded.Clear();
-                _vectorStart = _program._remote.GetPosition();
+                _vectorStart = _program.Remote.GetPosition();
                 _wayName = wayName;
                 _vectorsRecorded.Add(_vectorStart);
                 _program.WaypointCount++;
-                _program._vectorLastWP = _vectorStart;
+                _program.VectorLastWP = _vectorStart;
             }
             public void DeleteLastWaypoint() {
                 _vectorEnd = _vectorsRecorded[_program.WaypointCount];
                 _vectorStart = _vectorsRecorded[_program.WaypointCount - 1];
-                _program._vectorLastWP = _vectorStart;
+                _program.VectorLastWP = _vectorStart;
                 _vectorsRecorded.RemoveAt(_program.WaypointCount);
                 if (_program.WaypointCount > 1) {
                     _distance = Vector3D.Distance(_vectorStart, _vectorEnd);
@@ -69,29 +69,29 @@ namespace IngameScript {
                 }
             }
             public void CheckDistance() {
-                _vectorEnd = _program._remote.GetPosition();
+                _vectorEnd = _program.Remote.GetPosition();
                 _distance = Vector3D.Distance(_vectorStart, _vectorEnd);
-                _moveIndicator = _program._cockpit.MoveIndicator + _program._remote.MoveIndicator;
-                _rotationIndicator = _program._cockpit.RotationIndicator + _program._remote.RotationIndicator;
-                _rollIndicator = _program._cockpit.RollIndicator + _program._remote.RollIndicator;
+                _moveIndicator = _program.Cockpit.MoveIndicator + _program.Remote.MoveIndicator;
+                _rotationIndicator = _program.Cockpit.RotationIndicator + _program.Remote.RotationIndicator;
+                _rollIndicator = _program.Cockpit.RollIndicator + _program.Remote.RollIndicator;
                 if (_moveIndicator.X != 0 || _moveIndicator.Y != 0 || _rotationIndicator.X != 0 || _rotationIndicator.Y != 0 || _rollIndicator != 0) {
                     _isTurning = true;
                 }
                 if ((_distance > _distanceInTurns && _isTurning) || _distance > _distanceOnStraights) {
-                    _program._distance += _distance;
+                    _program.Distance += _distance;
                     _vectorsRecorded.Add(_vectorEnd);
                     _vectorStart = _vectorEnd;
-                    _program._waypointCount++;
+                    _program.WaypointCount++;
                     _isTurning = false;
-                    _program._vectorLastWP = _vectorStart;
+                    _program.VectorLastWP = _vectorStart;
                 }
             }
             public void SaveWay() {
-                _vectorEnd = _program._remote.GetPosition();
+                _vectorEnd = _program.Remote.GetPosition();
                 _distance = Vector3D.Distance(_vectorStart, _vectorEnd);
                 _vectorsRecorded.Add(_vectorEnd);
-                _program._waypointCount++;
-                _program._distance += _distance;
+                _program.WaypointCount++;
+                _program.Distance += _distance;
             }
             public void DiscardWay() {
                 _vectorsRecorded.Clear();
