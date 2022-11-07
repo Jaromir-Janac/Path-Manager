@@ -586,12 +586,15 @@ namespace IngameScript {
             var vector = new Vector3D();
             if (str != "") {
                 _xyz = str.Split(':');
-                _x = Convert.ToDouble(_xyz[1].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                _y = Convert.ToDouble(_xyz[2].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
-                _z = Convert.ToDouble(_xyz[3].Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", ""));
+                _x = Convert.ToDouble(StringToGPS(_xyz[1]));
+                _y = Convert.ToDouble(StringToGPS(_xyz[2]));
+                _z = Convert.ToDouble(StringToGPS(_xyz[3]));
                 vector = new Vector3D(_x, _y, _z);
             }
             return vector;
+        }
+        string StringToGPS(string str) {
+            return str.Replace("X", "").Replace("Y", "").Replace("Z", "").Replace(" ", "").Replace("{", "").Replace("}", "");
         }
         Vector3D GetVectorNormalize(Vector3D vector) {
             return vector / vector.Length();
@@ -691,7 +694,7 @@ namespace IngameScript {
                 else if (_viewport.Size.Y > 128 && _viewport.Size.Y <= 320) {
                     _scale = 1f;
                 }
-                else if (_viewport.Size.Y > 75) {
+                else if (_viewport.Size.Y > 320) {
                     _scale = 2f;
                 }
                 switch (_menuSelect) {
